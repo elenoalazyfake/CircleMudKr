@@ -10,7 +10,7 @@
 
 #define __DB_C__
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 
@@ -81,6 +81,7 @@ struct time_info_data time_info;/* the infomation about the time    */
 struct weather_data weather_info;	/* the infomation about the weather */
 struct player_special_data dummy_mob;	/* dummy spec area for mobs	*/
 struct reset_q_type reset_q;	/* queue of zones to be reset	 */
+char strerrorbuf[MAX_RAW_INPUT_LENGTH];
 
 /* local functions */
 int check_bitvector_names(bitvector_t bits, size_t namecount, const char *whatami, const char *whatbits);
@@ -480,10 +481,10 @@ void reset_time(void)
   time_t beginning_of_time = 0;
   FILE *bgtime;
 
-  if ((bgtime = fopen(TIME_FILE, "r")) == NULL)
+  if (fopen_s(&bgtime, TIME_FILE, "r"))
     log("SYSERR: Can't read from '%s' time file.", TIME_FILE);
   else {
-    fscanf(bgtime, "%ld\n", &beginning_of_time);
+    fscanf(bgtime, "%lld\n", &beginning_of_time);
     fclose(bgtime);
   }
   if (beginning_of_time == 0)
@@ -529,10 +530,10 @@ void save_mud_time(struct time_info_data *when)
 {
   FILE *bgtime;
 
-  if ((bgtime = fopen(TIME_FILE, "w")) == NULL)
+  if (fopen_s(&bgtime, TIME_FILE, "w"))
     log("SYSERR: Can't write to '%s' time file.", TIME_FILE);
   else {
-    fprintf(bgtime, "%ld\n", mud_time_to_secs(when));
+    fprintf(bgtime, "%lld\n", mud_time_to_secs(when));
     fclose(bgtime);
   }
 }
@@ -562,14 +563,14 @@ void build_player_index(void)
   long size, recs;
   struct char_file_u dummy;
 
-  if (!(player_fl = fopen(PLAYER_FILE, "r+b"))) {
+  if (fopen_s(&player_fl, PLAYER_FILE, "r+b")) {
     if (errno != ENOENT) {
       perror("SYSERR: fatal error opening playerfile");
       exit(1);
     } else {
       log("No playerfile.  Creating a new one.");
       touch(PLAYER_FILE);
-      if (!(player_fl = fopen(PLAYER_FILE, "r+b"))) {
+      if (fopen_s(&player_fl, PLAYER_FILE, "r+b")) {
 	perror("SYSERR: fatal error opening playerfile");
 	exit(1);
       }
@@ -705,8 +706,9 @@ void index_boot(int mode)
     index_filename = INDEX_FILE;
 
   snprintf(buf2, sizeof(buf2), "%s%s", prefix, index_filename);
-  if (!(db_index = fopen(buf2, "r"))) {
-    log("SYSERR: opening index file '%s': %s", buf2, strerror(errno));
+  if (fopen_s(&db_index, buf2, "r")) {
+    strerror(errno);
+    log("SYSERR: opening index file '%s': %s", buf2, strerrorbuf);
     exit(1);
   }
 
@@ -714,9 +716,10 @@ void index_boot(int mode)
   fscanf(db_index, "%s\n", buf1);
   while (*buf1 != '$') {
     snprintf(buf2, sizeof(buf2), "%s%s", prefix, buf1);
-    if (!(db_file = fopen(buf2, "r"))) {
+    if (fopen_s(&db_file, buf2, "r")) {
+      strerror(errno);
       log("SYSERR: File '%s' listed in '%s/%s': %s", buf2, prefix,
-	  index_filename, strerror(errno));
+	  index_filename, strerrorbuf);
       fscanf(db_index, "%s\n", buf1);
       continue;
     } else {
@@ -780,8 +783,9 @@ void index_boot(int mode)
   fscanf(db_index, "%s\n", buf1);
   while (*buf1 != '$') {
     snprintf(buf2, sizeof(buf2), "%s%s", prefix, buf1);
-    if (!(db_file = fopen(buf2, "r"))) {
-      log("SYSERR: %s: %s", buf2, strerror(errno));
+    if (fopen_s(&db_file, buf2, "r")) {
+      strerror(errno);
+      log("SYSERR: %s: %s", buf2, strerrorbuf);
       exit(1);
     }
     switch (mode) {
@@ -936,7 +940,7 @@ void parse_room(FILE *fl, int virtual_nr)
   /* t[0] is the zone number; ignored with the zone-file system */
 
   world[room_nr].room_flags = asciiflag_conv(flags);
-  sprintf(flags, "object #%d", virtual_nr);	/* sprintf: OK (until 399-bit integers) */
+  snprintf(flags, 128, "object #%d", virtual_nr);	/* sprintf: OK (until 399-bit integers) */
   check_bitvector_names(world[room_nr].room_flags, room_bits_count, flags, "room");
 
   world[room_nr].sector_type = t[2];
@@ -1332,7 +1336,7 @@ void parse_mobile(FILE *mob_f, int nr)
    * structure is to save newbie coders from themselves. -gg 2/25/98
    */
   mob_proto[i].player_specials = &dummy_mob;
-  sprintf(buf2, "mob vnum %d", nr);	/* sprintf: OK (for 'buf2 >= 19') */
+  snprintf(buf2, 128, "mob vnum %d", nr);	/* sprintf: OK (for 'buf2 >= 19') */
 
   /***** String data *****/
   mob_proto[i].player.name = fread_string(mob_f, buf2);
@@ -1424,7 +1428,7 @@ char *parse_object(FILE *obj_f, int nr)
   clear_object(obj_proto + i);
   obj_proto[i].item_number = i;
 
-  sprintf(buf2, "object #%d", nr);	/* sprintf: OK (for 'buf2 >= 19') */
+  snprintf(buf2, 128, "object #%d", nr);	/* sprintf: OK (for 'buf2 >= 19') */
 
   /* *** string data *** */
   if ((obj_proto[i].name = fread_string(obj_f, buf2)) == NULL) {
@@ -1495,8 +1499,8 @@ char *parse_object(FILE *obj_f, int nr)
     obj_proto[i].affected[j].modifier = 0;
   }
 
-  strcat(buf2, ", after numeric constants\n"	/* strcat: OK (for 'buf2 >= 87') */
-	 "...expecting 'E', 'A', '$', or next object number");
+  strncat(buf2, ", after numeric constants\n"	/* strcat: OK (for 'buf2 >= 87') */
+	 "...expecting 'E', 'A', '$', or next object number", 128);
   j = 0;
 
   for (;;) {
@@ -1696,7 +1700,7 @@ void load_help(FILE *fl)
   /* get the first keyword line */
   get_one_line(fl, key);
   while (*key != '$') {
-    strcat(key, "\r\n");	/* strcat: OK (READ_SIZE - "\n" + "\r\n" == READ_SIZE + 1) */
+    strncat(key, "\r\n", READ_SIZE);	/* strcat: OK (READ_SIZE - "\n" + "\r\n" == READ_SIZE + 1) */
     entrylen = strlcpy(entry, key, sizeof(entry));
 
     /* read in the corresponding help entry */
@@ -1705,7 +1709,7 @@ void load_help(FILE *fl)
       entrylen += strlcpy(entry + entrylen, line, sizeof(entry) - entrylen);
 
       if (entrylen + 2 < sizeof(entry) - 1) {
-        strcpy(entry + entrylen, "\r\n");	/* strcpy: OK (size checked above) */
+        strlcpy(entry + entrylen, "\r\n", 32384 - entrylen);	/* strcpy: OK (size checked above) */
         entrylen += 2;
       }
       get_one_line(fl, line);
@@ -1715,7 +1719,7 @@ void load_help(FILE *fl)
       int keysize;
       const char *truncmsg = "\r\n*TRUNCATED*\r\n";
 
-      strcpy(entry + sizeof(entry) - strlen(truncmsg) - 1, truncmsg);	/* strcpy: OK (assuming sane 'entry' size) */
+      strlcpy(entry + sizeof(entry) - strlen(truncmsg) - 1, truncmsg, 32384 - sizeof(entry) + strlen(truncmsg) + 1);	/* strcpy: OK (assuming sane 'entry' size) */
 
       keysize = strlen(key) - 2;
       log("SYSERR: Help entry exceeded buffer space: %.*s", keysize, key);
@@ -2195,8 +2199,7 @@ void save_char(struct char_data *ch)
 
   char_to_store(ch, &st);
 
-  strncpy(st.host, ch->desc->host, HOST_LENGTH);	/* strncpy: OK (s.host:HOST_LENGTH+1) */
-  st.host[HOST_LENGTH] = '\0';
+  strlcpy(st.host, ch->desc->host, HOST_LENGTH + 1);	/* strncpy: OK (s.host:HOST_LENGTH+1) */
 
   fseek(player_fl, GET_PFILEPOS(ch) * sizeof(struct char_file_u), SEEK_SET);
   fwrite(&st, sizeof(struct char_file_u), 1, player_fl);
@@ -2356,12 +2359,12 @@ void char_to_store(struct char_data *ch, struct char_file_u *st)
       ch->player.description[sizeof(st->description) - 3] = '\0';
       strcat(ch->player.description, "\r\n");	/* strcat: OK (previous line makes room) */
     }
-    strcpy(st->description, ch->player.description);	/* strcpy: OK (checked above) */
+    strlcpy(st->description, ch->player.description, EXDSCR_LENGTH);	/* strcpy: OK (checked above) */
   } else
     *st->description = '\0';
 
-  strcpy(st->name, GET_NAME(ch));	/* strcpy: OK (that's what GET_NAME came from) */
-  strcpy(st->pwd, GET_PASSWD(ch));	/* strcpy: OK (that's what GET_PASSWD came from) */
+  strlcpy(st->name, GET_NAME(ch), MAX_NAME_LENGTH);	/* strcpy: OK (that's what GET_NAME came from) */
+  strlcpy(st->pwd, GET_PASSWD(ch), MAX_PWD_LENGTH);	/* strcpy: OK (that's what GET_PASSWD came from) */
 
   /* add spell and eq affections back in now */
   for (i = 0; i < MAX_AFFECT; i++) {
@@ -2609,8 +2612,9 @@ int file_to_string(const char *name, char *buf)
 
   *buf = '\0';
 
-  if (!(fl = fopen(name, "r"))) {
-    log("SYSERR: reading %s: %s", name, strerror(errno));
+  if (fopen_s(&fl, name, "r")) {
+    strerror(errno);
+    log("SYSERR: reading %s: %s", name, strerrorbuf);
     return (-1);
   }
 

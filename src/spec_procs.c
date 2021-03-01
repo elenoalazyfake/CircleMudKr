@@ -8,7 +8,7 @@
 *  CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.               *
 ************************************************************************ */
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 #include "structs.h"
@@ -145,7 +145,7 @@ void list_skills(struct char_data *ch)
     }
   }
   if (len >= sizeof(buf2))
-    strcpy(buf2 + sizeof(buf2) - strlen(overflow) - 1, overflow); /* strcpy: OK */
+    strlcpy(buf2 + sizeof(buf2) - strlen(overflow) - 1, overflow, strlen(overflow) + 1); /* strcpy: OK */
 
   page_string(ch->desc, buf2, TRUE);
 }
@@ -304,13 +304,17 @@ SPECIAL(mayor)
     break;
 
   case 'O':
-    do_gen_door(ch, strcpy(actbuf, "gate"), 0, SCMD_UNLOCK);	/* strcpy: OK */
-    do_gen_door(ch, strcpy(actbuf, "gate"), 0, SCMD_OPEN);	/* strcpy: OK */
+    strlcpy(actbuf, "gate", MAX_INPUT_LENGTH);
+    do_gen_door(ch, actbuf, 0, SCMD_UNLOCK);	/* strcpy: OK */
+    strlcpy(actbuf, "gate", MAX_INPUT_LENGTH);
+    do_gen_door(ch, actbuf, 0, SCMD_OPEN);	/* strcpy: OK */
     break;
 
   case 'C':
-    do_gen_door(ch, strcpy(actbuf, "gate"), 0, SCMD_CLOSE);	/* strcpy: OK */
-    do_gen_door(ch, strcpy(actbuf, "gate"), 0, SCMD_LOCK);	/* strcpy: OK */
+    strlcpy(actbuf, "gate", MAX_INPUT_LENGTH);
+    do_gen_door(ch, actbuf, 0, SCMD_CLOSE);	/* strcpy: OK */
+    strlcpy(actbuf, "gate", MAX_INPUT_LENGTH);
+    do_gen_door(ch, actbuf, 0, SCMD_LOCK);	/* strcpy: OK */
     break;
 
   case '.':
@@ -506,16 +510,20 @@ SPECIAL(puff)
 
   switch (rand_number(0, 60)) {
   case 0:
-    do_say(ch, strcpy(actbuf, "My god!  It's full of stars!"), 0, 0);	/* strcpy: OK */
+    strlcpy(actbuf, "My god!  It's full of stars!", MAX_INPUT_LENGTH);
+    do_say(ch, actbuf, 0, 0);	/* strcpy: OK */
     return (TRUE);
   case 1:
-    do_say(ch, strcpy(actbuf, "How'd all those fish get up here?"), 0, 0);	/* strcpy: OK */
+    strlcpy(actbuf, "How'd all those fish get up here?", MAX_INPUT_LENGTH);
+    do_say(ch, actbuf, 0, 0);	/* strcpy: OK */
     return (TRUE);
   case 2:
-    do_say(ch, strcpy(actbuf, "I'm a very female dragon."), 0, 0);	/* strcpy: OK */
+    strlcpy(actbuf, "I'm a very female dragon.", MAX_INPUT_LENGTH);
+    do_say(ch, actbuf, 0, 0);	/* strcpy: OK */
     return (TRUE);
   case 3:
-    do_say(ch, strcpy(actbuf, "I've got a peaceful, easy feeling."), 0, 0);	/* strcpy: OK */
+    strlcpy(actbuf, "I've got a peaceful, easy feeling.", MAX_INPUT_LENGTH);
+    do_say(ch, actbuf, 0, 0);	/* strcpy: OK */
     return (TRUE);
   default:
     return (FALSE);
@@ -627,8 +635,7 @@ SPECIAL(cityguard)
     if (spit_social > 0) {
       char spitbuf[MAX_NAME_LENGTH + 1];
 
-      strncpy(spitbuf, GET_NAME(spittle), sizeof(spitbuf));	/* strncpy: OK */
-      spitbuf[sizeof(spitbuf) - 1] = '\0';
+      strlcpy(spitbuf, GET_NAME(spittle), sizeof(spitbuf));	/* strncpy: OK */
 
       do_action(ch, spitbuf, spit_social, 0);
       return (TRUE);

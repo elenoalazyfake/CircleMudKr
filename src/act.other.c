@@ -10,7 +10,7 @@
 
 #define __ACT_OTHER_C__
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 #include "structs.h"
@@ -782,10 +782,10 @@ ACMD(do_display)
 ACMD(do_gen_write)
 {
   FILE *fl;
-  char *tmp;
   const char *filename;
   struct stat fbuf;
   time_t ct;
+  char timebuf[MAX_TIME_LENGTH];
 
   switch (subcmd) {
   case SCMD_BUG:
@@ -802,7 +802,7 @@ ACMD(do_gen_write)
   }
 
   ct = time(0);
-  tmp = asctime(localtime(&ct));
+  time_string(ct, timebuf, MAX_TIME_LENGTH);
 
   if (IS_NPC(ch)) {
     send_to_char(ch, "Monsters can't have ideas - Go away.\r\n");
@@ -826,12 +826,12 @@ ACMD(do_gen_write)
     send_to_char(ch, "Sorry, the file is full right now.. try again later.\r\n");
     return;
   }
-  if (!(fl = fopen(filename, "a"))) {
+  if (fopen_s(&fl, filename, "a")) {
     perror("SYSERR: do_gen_write");
     send_to_char(ch, "Could not open the file.  Sorry.\r\n");
     return;
   }
-  fprintf(fl, "%-8s (%6.6s) [%5d] %s\n", GET_NAME(ch), (tmp + 4),
+  fprintf(fl, "%-8s (%6.6s) [%5d] %s\n", GET_NAME(ch), (timebuf + 4),
 	  GET_ROOM_VNUM(IN_ROOM(ch)), argument);
   fclose(fl);
   send_to_char(ch, "Okay.  Thanks!\r\n");

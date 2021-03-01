@@ -35,6 +35,7 @@ struct time_info_data *age(struct char_data *ch);
 int	num_pc_in_room(struct room_data *room);
 void	core_dump_real(const char *, int);
 int	room_is_dark(room_rnum room);
+void time_string(time_t t, char* buf, int size);
 
 #define core_dump()		core_dump_real(__FILE__, __LINE__)
 

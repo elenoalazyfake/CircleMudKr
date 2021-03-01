@@ -10,7 +10,7 @@
 
 #define __INTERPRETER_C__
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 #include "structs.h"
@@ -738,7 +738,7 @@ void perform_complex_alias(struct txt_q *input_q, char *orig, struct alias_data 
   int num_of_tokens = 0, num;
 
   /* First, parse the original string */
-  strcpy(buf2, orig);	/* strcpy: OK (orig:MAX_INPUT_LENGTH < buf2:MAX_RAW_INPUT_LENGTH) */
+  strlcpy(buf2, orig, MAX_RAW_INPUT_LENGTH);	/* strcpy: OK (orig:MAX_INPUT_LENGTH < buf2:MAX_RAW_INPUT_LENGTH) */
   temp = strtok(buf2, " ");
   while (temp != NULL && num_of_tokens < NUM_TOKENS) {
     tokens[num_of_tokens++] = temp;
@@ -759,10 +759,10 @@ void perform_complex_alias(struct txt_q *input_q, char *orig, struct alias_data 
     } else if (*temp == ALIAS_VAR_CHAR) {
       temp++;
       if ((num = *temp - '1') < num_of_tokens && num >= 0) {
-	strcpy(write_point, tokens[num]);	/* strcpy: OK */
+	memcpy(write_point, tokens[num], strlen(tokens[num]));	/* strcpy: OK */
 	write_point += strlen(tokens[num]);
       } else if (*temp == ALIAS_GLOB_CHAR) {
-	strcpy(write_point, orig);		/* strcpy: OK */
+	memcpy(write_point, orig, strlen(orig));		/* strcpy: OK */
 	write_point += strlen(orig);
       } else if ((*(write_point++) = *temp) == '$')	/* redouble $ for act safety */
 	*(write_point++) = '$';
@@ -1062,7 +1062,7 @@ void half_chop(char *string, char *arg1, char *arg2)
 
   temp = any_one_arg(string, arg1);
   skip_spaces(&temp);
-  strcpy(arg2, temp);	/* strcpy: OK (documentation) */
+  strlcpy(arg2, temp, MAX_INPUT_LENGTH);	/* strcpy: OK (documentation) */
 }
 
 
@@ -1300,8 +1300,13 @@ void nanny(struct descriptor_data *d, char *arg)
       int player_i;
 
       if ((_parse_name(arg, tmp_name)) || strlen(tmp_name) < 2 ||
-	  strlen(tmp_name) > MAX_NAME_LENGTH || !Valid_Name(tmp_name) ||
-	  fill_word(strcpy(buf, tmp_name)) || reserved_word(buf)) {	/* strcpy: OK (mutual MAX_INPUT_LENGTH) */
+	  strlen(tmp_name) > MAX_NAME_LENGTH || !Valid_Name(tmp_name)) {
+
+	write_to_output(d, "Invalid name, please try another.\r\nName: ");
+	return;
+      }
+      strlcpy(buf, tmp_name, MAX_INPUT_LENGTH);
+      if (fill_word(buf) || reserved_word(buf)) {	/* strcpy: OK (mutual MAX_INPUT_LENGTH) */
 	write_to_output(d, "Invalid name, please try another.\r\nName: ");
 	return;
       }
@@ -1322,7 +1327,7 @@ void nanny(struct descriptor_data *d, char *arg)
 	  CREATE(d->character->player_specials, struct player_special_data, 1);
 	  d->character->desc = d;
 	  CREATE(d->character->player.name, char, strlen(tmp_name) + 1);
-	  strcpy(d->character->player.name, CAP(tmp_name));	/* strcpy: OK (size checked above) */
+	  strlcpy(d->character->player.name, CAP(tmp_name), strlen(tmp_name) + 1);	/* strcpy: OK (size checked above) */
 	  GET_PFILEPOS(d->character) = player_i;
 	  write_to_output(d, "Did I get that right, %s (Y/N)? ", tmp_name);
 	  STATE(d) = CON_NAME_CNFRM;
@@ -1345,7 +1350,7 @@ void nanny(struct descriptor_data *d, char *arg)
 	  return;
 	}
 	CREATE(d->character->player.name, char, strlen(tmp_name) + 1);
-	strcpy(d->character->player.name, CAP(tmp_name));	/* strcpy: OK (size checked above) */
+	strlcpy(d->character->player.name, CAP(tmp_name), strlen(tmp_name) + 1);	/* strcpy: OK (size checked above) */
 
 	write_to_output(d, "Did I get that right, %s (Y/N)? ", tmp_name);
 	STATE(d) = CON_NAME_CNFRM;
@@ -1459,7 +1464,7 @@ void nanny(struct descriptor_data *d, char *arg)
       write_to_output(d, "\r\nIllegal password.\r\nPassword: ");
       return;
     }
-    strncpy(GET_PASSWD(d->character), CRYPT(arg, GET_PC_NAME(d->character)), MAX_PWD_LENGTH);	/* strncpy: OK (G_P:MAX_PWD_LENGTH+1) */
+    strlcpy(GET_PASSWD(d->character), CRYPT(arg, GET_PC_NAME(d->character)), MAX_PWD_LENGTH);	/* strncpy: OK (G_P:MAX_PWD_LENGTH+1) */
     *(GET_PASSWD(d->character) + MAX_PWD_LENGTH) = '\0';
 
     write_to_output(d, "\r\nPlease retype password: ");

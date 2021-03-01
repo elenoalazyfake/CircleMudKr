@@ -9,7 +9,7 @@
 * CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.		 *
 *********************************************************************** */
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 #include "structs.h"
 #include "utils.h"
@@ -32,7 +32,7 @@ void write_aliases(struct char_data *ch)
   if (GET_ALIASES(ch) == NULL)
     return;
 
-  if ((file = fopen(fn, "w")) == NULL) {
+  if (fopen_s(&file, fn, "w")) {
     log("SYSERR: Couldn't save aliases for %s in '%s'.", GET_NAME(ch), fn);
     perror("SYSERR: write_aliases");
     return;
@@ -62,7 +62,7 @@ void read_aliases(struct char_data *ch)
 
   get_filename(xbuf, sizeof(xbuf), ALIAS_FILE, GET_NAME(ch));
 
-  if ((file = fopen(xbuf, "r")) == NULL) {
+  if (fopen_s(&file, xbuf, "r")) {
     if (errno != ENOENT) {
       log("SYSERR: Couldn't open alias file '%s' for %s.", xbuf, GET_NAME(ch));
       perror("SYSERR: read_aliases");
@@ -123,6 +123,7 @@ void delete_aliases(const char *charname)
     return;
 
   if (remove(filename) < 0 && errno != ENOENT)
-    log("SYSERR: deleting alias file %s: %s", filename, strerror(errno));
+    strerror(errno);
+    log("SYSERR: deleting alias file %s: %s", filename, strerrorbuf);
 }
 

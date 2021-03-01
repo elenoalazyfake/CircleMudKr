@@ -8,7 +8,7 @@
 *  CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.               *
 ************************************************************************ */
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 
@@ -267,8 +267,7 @@ bool aggressive_mob_on_a_leash(struct char_data *slave, struct char_data *master
     if (snarl_cmd > 0 && attack && !rand_number(0, 3)) {
       char victbuf[MAX_NAME_LENGTH + 1];
 
-      strncpy(victbuf, GET_NAME(attack), sizeof(victbuf));	/* strncpy: OK */
-      victbuf[sizeof(victbuf) - 1] = '\0';
+      strlcpy(victbuf, GET_NAME(attack), sizeof(victbuf));	/* strncpy: OK */
 
       do_action(slave, victbuf, snarl_cmd, 0);
     }

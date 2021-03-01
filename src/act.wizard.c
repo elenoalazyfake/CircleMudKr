@@ -8,7 +8,7 @@
 *  CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.               *
 ************************************************************************ */
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 #include "structs.h"
@@ -618,10 +618,10 @@ void do_stat_character(struct char_data *ch, struct char_data *k)
 	CCYEL(ch, C_NRM), GET_EXP(k), CCNRM(ch, C_NRM), GET_ALIGNMENT(k));
 
   if (!IS_NPC(k)) {
-    char buf1[64], buf2[64];
+    char buf1[MAX_TIME_LENGTH], buf2[MAX_TIME_LENGTH];
 
-    strlcpy(buf1, asctime(localtime(&(k->player.time.birth))), sizeof(buf1));
-    strlcpy(buf2, asctime(localtime(&(k->player.time.logon))), sizeof(buf2));
+    time_string(k->player.time.birth, buf1, MAX_TIME_LENGTH);
+    time_string(k->player.time.logon, buf2, MAX_TIME_LENGTH);
     buf1[10] = buf2[10] = '\0';
 
     send_to_char(ch, "Created: [%s], Last Logon: [%s], Played [%dh %dm], Age [%d]\r\n",
@@ -1522,7 +1522,7 @@ ACMD(do_wizlock)
 
 ACMD(do_date)
 {
-  char *tmstr;
+  char timebuf[MAX_TIME_LENGTH];
   time_t mytime;
   int d, h, m;
 
@@ -1531,18 +1531,18 @@ ACMD(do_date)
   else
     mytime = boot_time;
 
-  tmstr = (char *) asctime(localtime(&mytime));
-  *(tmstr + strlen(tmstr) - 1) = '\0';
+  time_string(mytime, timebuf, MAX_TIME_LENGTH);
+  *(timebuf + strlen(timebuf) - 1) = '\0';
 
   if (subcmd == SCMD_DATE)
-    send_to_char(ch, "Current machine time: %s\r\n", tmstr);
+    send_to_char(ch, "Current machine time: %s\r\n", timebuf);
   else {
     mytime = time(0) - boot_time;
     d = mytime / 86400;
     h = (mytime / 3600) % 24;
     m = (mytime / 60) % 60;
 
-    send_to_char(ch, "Up since %s: %d day%s, %d:%02d\r\n", tmstr, d, d == 1 ? "" : "s", h, m);
+    send_to_char(ch, "Up since %s: %d day%s, %d:%02d\r\n", timebuf, d, d == 1 ? "" : "s", h, m);
   }
 }
 
@@ -1551,6 +1551,7 @@ ACMD(do_date)
 ACMD(do_last)
 {
   char arg[MAX_INPUT_LENGTH];
+  char timebuf[MAX_TIME_LENGTH];
   struct char_file_u chdata;
 
   one_argument(argument, arg);
@@ -1566,10 +1567,11 @@ ACMD(do_last)
     send_to_char(ch, "You are not sufficiently godly for that!\r\n");
     return;
   }
+  time_string(chdata.last_logon, timebuf, MAX_TIME_LENGTH);
   send_to_char(ch, "[%5ld] [%2d %s] %-12s : %-18s : %-20s\r\n",
 	  chdata.char_specials_saved.idnum, chdata.level,
 	  class_abbrevs[(int) chdata.chclass], chdata.name, chdata.host,
-	  ctime(&chdata.last_logon));
+	  timebuf);
 }
 
 
@@ -1881,6 +1883,7 @@ ACMD(do_show)
   struct descriptor_data *d;
   char field[MAX_INPUT_LENGTH], value[MAX_INPUT_LENGTH],
 	arg[MAX_INPUT_LENGTH], buf[MAX_STRING_LENGTH];
+  char timebuf[MAX_TIME_LENGTH];
 
   struct show_struct {
     const char *cmd;
@@ -1911,7 +1914,7 @@ ACMD(do_show)
     return;
   }
 
-  strcpy(arg, two_arguments(argument, field, value));	/* strcpy: OK (argument <= MAX_INPUT_LENGTH == arg) */
+  strlcpy(arg, two_arguments(argument, field, value), MAX_INPUT_LENGTH);	/* strcpy: OK (argument <= MAX_INPUT_LENGTH == arg) */
 
   for (l = 0; *(fields[l].cmd) != '\n'; l++)
     if (!strncmp(field, fields[l].cmd, strlen(field)))
@@ -1967,8 +1970,10 @@ ACMD(do_show)
 	vbuf.points.gold, vbuf.points.bank_gold, vbuf.points.exp,
 	vbuf.char_specials_saved.alignment, vbuf.player_specials_saved.spells_to_learn);
     /* ctime() uses static buffer: do not combine. */
-    send_to_char(ch, "Started: %-20.16s  ", ctime(&vbuf.birth));
-    send_to_char(ch, "Last: %-20.16s  Played: %3dh %2dm\r\n", ctime(&vbuf.last_logon), vbuf.played / 3600, vbuf.played / 60 % 60);
+    time_string(vbuf.birth, timebuf, MAX_TIME_LENGTH);
+    send_to_char(ch, "Started: %-20.16s  ", timebuf);
+    time_string(vbuf.last_logon, timebuf, MAX_TIME_LENGTH);
+    send_to_char(ch, "Last: %-20.16s  Played: %3dh %2dm\r\n", timebuf, vbuf.played / 3600, vbuf.played / 60 % 60);
     break;
 
   /* show rent */
@@ -2456,7 +2461,7 @@ int perform_set(struct char_data *ch, struct char_data *vict, int mode,
       send_to_char(ch, "You cannot change that.\r\n");
       return (0);
     }
-    strncpy(GET_PASSWD(vict), CRYPT(val_arg, GET_NAME(vict)), MAX_PWD_LENGTH);	/* strncpy: OK (G_P:MAX_PWD_LENGTH) */
+    strlcpy(GET_PASSWD(vict), CRYPT(val_arg, GET_NAME(vict)), MAX_PWD_LENGTH);	/* strncpy: OK (G_P:MAX_PWD_LENGTH) */
     *(GET_PASSWD(vict) + MAX_PWD_LENGTH) = '\0';
     send_to_char(ch, "Password changed to '%s'.\r\n", val_arg);
     break;

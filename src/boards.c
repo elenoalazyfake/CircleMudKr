@@ -44,7 +44,7 @@ TO ADD A NEW BOARD, simply follow our easy 4-step program:
 */
 
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 
@@ -187,7 +187,7 @@ SPECIAL(gen_board)
 
 int Board_write_message(int board_type, struct char_data *ch, char *arg, struct obj_data *board)
 {
-  char *tmstr;
+  char timebuf[MAX_TIME_LENGTH];
   time_t ct;
   char buf[MAX_INPUT_LENGTH], buf2[MAX_NAME_LENGTH + 3];
 
@@ -216,11 +216,11 @@ int Board_write_message(int board_type, struct char_data *ch, char *arg, struct 
     return (1);
   }
   ct = time(0);
-  tmstr = (char *) asctime(localtime(&ct));
-  *(tmstr + strlen(tmstr) - 1) = '\0';
+  time_string(ct, timebuf, MAX_TIME_LENGTH);
+  *(timebuf + strlen(timebuf) - 1) = '\0';
 
   snprintf(buf2, sizeof(buf2), "(%s)", GET_NAME(ch));
-  snprintf(buf, sizeof(buf), "%6.10s %-12s :: %s", tmstr, buf2, arg);
+  snprintf(buf, sizeof(buf), "%6.10s %-12s :: %s", timebuf, buf2, arg);
   NEW_MSG_INDEX(board_type).heading = strdup(buf);
   NEW_MSG_INDEX(board_type).level = GET_LEVEL(ch);
 
@@ -440,7 +440,7 @@ void Board_save_board(int board_type)
     remove(FILENAME(board_type));
     return;
   }
-  if (!(fl = fopen(FILENAME(board_type), "wb"))) {
+  if (fopen_s(&fl, FILENAME(board_type), "wb")) {
     perror("SYSERR: Error writing board");
     return;
   }
@@ -476,7 +476,7 @@ void Board_load_board(int board_type)
   int i, len1, len2;
   char *tmp1, *tmp2;
 
-  if (!(fl = fopen(FILENAME(board_type), "rb"))) {
+  if (fopen_s(&fl, FILENAME(board_type), "rb")) {
     if (errno != ENOENT)
       perror("SYSERR: Error reading board");
     return;

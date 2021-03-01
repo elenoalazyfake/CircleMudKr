@@ -1,0 +1,16 @@
+config.log
+config.cache
+config.status
+*/conf.h
+*/.accepted
+*/Makefile
+src/doc/*.html
+src/doc/circle.*
+lib/etc/hcontrol
+lib/etc/players
+lib/etc/plrmail
+lib/etc/badsites
+lib/etc/board.immort
+bin/*
+.vs/*
+Debug/*

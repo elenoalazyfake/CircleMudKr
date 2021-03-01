@@ -8,7 +8,7 @@
 *  CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.               *
 ************************************************************************ */
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 
@@ -121,13 +121,13 @@ void string_add(struct descriptor_data *d, char *str)
   if (!(*d->str)) {
     if (strlen(str) + 3 > d->max_str) { /* \r\n\0 */
       send_to_char(d->character, "String too long - Truncated.\r\n");
-      strcpy(&str[d->max_str - 3], "\r\n");	/* strcpy: OK (size checked) */
+      snprintf(str + d->max_str - 3, MAX_INPUT_LENGTH - d->max_str + 3, "\r\n");	/* strcpy: OK (size checked) */
       CREATE(*d->str, char, d->max_str);
-      strcpy(*d->str, str);	/* strcpy: OK (size checked) */
+      strlcpy(*d->str, str, d->max_str);	/* strcpy: OK (size checked) */
       terminator = 1;
     } else {
       CREATE(*d->str, char, strlen(str) + 3);
-      strcpy(*d->str, str);	/* strcpy: OK (size checked) */
+      strlcpy(*d->str, str, d->max_str);	/* strcpy: OK (size checked) */
     }
   } else {
     if (strlen(str) + strlen(*d->str) + 3 > d->max_str) { /* \r\n\0 */
@@ -135,7 +135,7 @@ void string_add(struct descriptor_data *d, char *str)
       terminator = 1;
     } else {
       RECREATE(*d->str, char, strlen(*d->str) + strlen(str) + 3); /* \r\n\0 */
-      strcat(*d->str, str);	/* strcat: OK (size precalculated) */
+      snprintf(*d->str + strlen(*d->str), d->max_str - strlen(*d->str), str);	/* strcat: OK (size precalculated) */
     }
   }
 
@@ -162,7 +162,7 @@ void string_add(struct descriptor_data *d, char *str)
     if (STATE(d) == CON_PLAYING && d->character && !IS_NPC(d->character))
       REMOVE_BIT(PLR_FLAGS(d->character), PLR_WRITING);
   } else
-    strcat(*d->str, "\r\n");	/* strcat: OK (size checked) */
+    snprintf(*d->str + strlen(*d->str), d->max_str - strlen(*d->str), "\r\n");	/* strcat: OK (size checked) */
 }
 
 
@@ -219,7 +219,7 @@ ACMD(do_skillset)
     send_to_char(ch, "Skill must be enclosed in: ''\r\n");
     return;
   }
-  strcpy(help, (argument + 1));	/* strcpy: OK (MAX_INPUT_LENGTH <= MAX_STRING_LENGTH) */
+  strlcpy(help, (argument + 1), MAX_STRING_LENGTH);	/* strcpy: OK (MAX_INPUT_LENGTH <= MAX_STRING_LENGTH) */
   help[qend - 1] = '\0';
   if ((skill = find_skill_num(help)) <= 0) {
     send_to_char(ch, "Unrecognized skill.\r\n");
@@ -420,7 +420,7 @@ void show_string(struct descriptor_data *d, char *input)
     diff = d->showstr_vector[d->showstr_page + 1] - d->showstr_vector[d->showstr_page];
     if (diff > MAX_STRING_LENGTH - 3) /* 3=\r\n\0 */
       diff = MAX_STRING_LENGTH - 3;
-    strncpy(buffer, d->showstr_vector[d->showstr_page], diff);	/* strncpy: OK (size truncated above) */
+    memcpy(buffer, d->showstr_vector[d->showstr_page], diff);	/* strncpy: OK (size truncated above) */
     /*
      * Fix for prompt overwriting last line in compact mode submitted by
      * Peter Ajamian <peter@pajamian.dhs.org> on 04/21/2001
@@ -429,13 +429,13 @@ void show_string(struct descriptor_data *d, char *input)
       buffer[diff] = '\0';
     else if (buffer[diff - 2] == '\n' && buffer[diff - 1] == '\r')
       /* This is backwards.  Fix it. */
-      strcpy(buffer + diff - 2, "\r\n");	/* strcpy: OK (size checked) */
+      strlcpy(buffer + diff - 2, "\r\n", MAX_STRING_LENGTH - diff + 2);	/* strcpy: OK (size checked) */
     else if (buffer[diff - 1] == '\r' || buffer[diff - 1] == '\n')
       /* Just one of \r\n.  Overwrite it. */
-      strcpy(buffer + diff - 1, "\r\n");	/* strcpy: OK (size checked) */
+      strlcpy(buffer + diff - 1, "\r\n", MAX_STRING_LENGTH - diff + 1);	/* strcpy: OK (size checked) */
     else
       /* Tack \r\n onto the end to fix bug with prompt overwriting last line. */
-      strcpy(buffer + diff, "\r\n");	/* strcpy: OK (size checked) */
+      strlcpy(buffer + diff, "\r\n", MAX_STRING_LENGTH - diff);	/* strcpy: OK (size checked) */
     send_to_char(d->character, "%s", buffer);
     d->showstr_page++;
   }

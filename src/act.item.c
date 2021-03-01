@@ -8,7 +8,7 @@
 *  CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.               *
 ************************************************************************ */
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 
@@ -350,8 +350,8 @@ ACMD(do_get)
     int amount = 1;
     if (is_number(arg1)) {
       amount = atoi(arg1);
-      strcpy(arg1, arg2);	/* strcpy: OK (sizeof: arg1 == arg2) */
-      strcpy(arg2, arg3);	/* strcpy: OK (sizeof: arg2 == arg3) */
+      strlcpy(arg1, arg2, MAX_INPUT_LENGTH);	/* strcpy: OK (sizeof: arg1 == arg2) */
+      strlcpy(arg2, arg3, MAX_INPUT_LENGTH);	/* strcpy: OK (sizeof: arg2 == arg3) */
     }
     cont_dotmode = find_all_dots(arg2);
     if (cont_dotmode == FIND_INDIV) {
@@ -784,7 +784,7 @@ void name_from_drinkcon(struct obj_data *obj)
       continue;
 
     if (*new_name)
-      strcat(new_name, " ");	/* strcat: OK (size precalculated) */
+      strncat(new_name, " ", strlen(obj->name) - strlen(liqname));	/* strcat: OK (size precalculated) */
     strncat(new_name, cur_name, cpylen);	/* strncat: OK (size precalculated) */
   }
 
@@ -798,12 +798,13 @@ void name_from_drinkcon(struct obj_data *obj)
 void name_to_drinkcon(struct obj_data *obj, int type)
 {
   char *new_name;
+  int len = strlen(obj->name) + strlen(drinknames[type]) + 2;
 
   if (!obj || (GET_OBJ_TYPE(obj) != ITEM_DRINKCON && GET_OBJ_TYPE(obj) != ITEM_FOUNTAIN))
     return;
 
-  CREATE(new_name, char, strlen(obj->name) + strlen(drinknames[type]) + 2);
-  sprintf(new_name, "%s %s", obj->name, drinknames[type]);	/* sprintf: OK */
+  CREATE(new_name, char, len);
+  snprintf(new_name, len, "%s %s", obj->name, drinknames[type]);	/* sprintf: OK */
 
   if (GET_OBJ_RNUM(obj) == NOTHING || obj->name != obj_proto[GET_OBJ_RNUM(obj)].name)
     free(obj->name);

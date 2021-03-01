@@ -8,7 +8,7 @@
 *  CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.               *
 ************************************************************************ */
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 #include "structs.h"
@@ -70,7 +70,7 @@ int House_load(room_vnum vnum)
     return (0);
   if (!House_get_filename(vnum, filename, sizeof(filename)))
     return (0);
-  if (!(fl = fopen(filename, "r+b")))	/* no file found */
+  if (fopen_s(&fl, filename, "r+b"))	/* no file found */
     return (0);
   while (!feof(fl)) {
     fread(&object, sizeof(struct obj_file_elem), 1, fl);
@@ -133,7 +133,7 @@ void House_crashsave(room_vnum vnum)
     return;
   if (!House_get_filename(vnum, buf, sizeof(buf)))
     return;
-  if (!(fp = fopen(buf, "wb"))) {
+  if (fopen_s(&fp, buf, "wb")) {
     perror("SYSERR: Error saving house file");
     return;
   }
@@ -155,14 +155,18 @@ void House_delete_file(room_vnum vnum)
 
   if (!House_get_filename(vnum, filename, sizeof(filename)))
     return;
-  if (!(fl = fopen(filename, "rb"))) {
-    if (errno != ENOENT)
-      log("SYSERR: Error deleting house file #%d. (1): %s", vnum, strerror(errno));
+  if (fopen_s(&fl, filename, "rb")) {
+    if (errno != ENOENT) {
+      strerror(errno);
+      log("SYSERR: Error deleting house file #%d. (1): %s", vnum, strerrorbuf);
+    }
     return;
   }
   fclose(fl);
-  if (remove(filename) < 0)
-    log("SYSERR: Error deleting house file #%d. (2): %s", vnum, strerror(errno));
+  if (remove(filename) < 0) {
+    strerror(errno);
+    log("SYSERR: Error deleting house file #%d. (2): %s", vnum, strerrorbuf);
+  }
 }
 
 
@@ -178,7 +182,7 @@ void House_listrent(struct char_data *ch, room_vnum vnum)
 
   if (!House_get_filename(vnum, filename, sizeof(filename)))
     return;
-  if (!(fl = fopen(filename, "rb"))) {
+  if (fopen_s(&fl, filename, "rb")) {
     send_to_char(ch, "No objects on file for house #%d.\r\n", vnum);
     return;
   }
@@ -222,7 +226,7 @@ void House_save_control(void)
 {
   FILE *fl;
 
-  if (!(fl = fopen(HCONTROL_FILE, "wb"))) {
+  if (fopen_s(&fl, HCONTROL_FILE, "wb")) {
     perror("SYSERR: Unable to open house control file.");
     return;
   }
@@ -243,7 +247,7 @@ void House_boot(void)
 
   memset((char *)house_control,0,sizeof(struct house_control_rec)*MAX_HOUSES);
 
-  if (!(fl = fopen(HCONTROL_FILE, "rb"))) {
+  if (fopen_s(&fl, HCONTROL_FILE, "rb")) {
     if (errno == ENOENT)
       log("   House control file '%s' does not exist.", HCONTROL_FILE);
     else
@@ -298,7 +302,8 @@ const char *HCONTROL_FORMAT =
 void hcontrol_list_houses(struct char_data *ch)
 {
   int i;
-  char *timestr, *temp;
+  char timebuf[MAX_TIME_LENGTH];
+  char *temp;
   char built_on[128], last_pay[128], own_name[MAX_NAME_LENGTH + 1];
 
   if (!num_of_houses) {
@@ -315,21 +320,21 @@ void hcontrol_list_houses(struct char_data *ch)
       continue;
 
     if (house_control[i].built_on) {
-      timestr = asctime(localtime(&(house_control[i].built_on)));
-      *(timestr + 10) = '\0';
-      strlcpy(built_on, timestr, sizeof(built_on));
+      time_string(house_control[i].built_on, timebuf, MAX_TIME_LENGTH);
+      *(timebuf + 10) = '\0';
+      strlcpy(built_on, timebuf, sizeof(built_on));
     } else
-      strcpy(built_on, "Unknown");	/* strcpy: OK (for 'strlen("Unknown") < 128') */
+      strlcpy(built_on, "Unknown", sizeof(built_on));	/* strcpy: OK (for 'strlen("Unknown") < 128') */
 
     if (house_control[i].last_payment) {
-      timestr = asctime(localtime(&(house_control[i].last_payment)));
-      *(timestr + 10) = '\0';
-      strlcpy(last_pay, timestr, sizeof(built_on));
+      time_string(house_control[i].last_payment, timebuf, MAX_TIME_LENGTH);
+      *(timebuf + 10) = '\0';
+      strlcpy(last_pay, timebuf, sizeof(last_pay));
     } else
-      strcpy(last_pay, "None");	/* strcpy: OK (for 'strlen("None") < 128') */
+      strlcpy(last_pay, "None", sizeof(last_pay));	/* strcpy: OK (for 'strlen("None") < 128') */
 
     /* Now we need a copy of the owner's name to capitalize. -gg 6/21/98 */
-    strcpy(own_name, temp);	/* strcpy: OK (names guaranteed <= MAX_NAME_LENGTH+1) */
+    strlcpy(own_name, temp, MAX_NAME_LENGTH + 1);	/* strcpy: OK (names guaranteed <= MAX_NAME_LENGTH+1) */
     send_to_char(ch, "%7d %7d  %-10s    %2d    %-12s %s\r\n",
 	    house_control[i].vnum, house_control[i].atrium, built_on,
 	    house_control[i].num_of_guests, CAP(own_name), last_pay);

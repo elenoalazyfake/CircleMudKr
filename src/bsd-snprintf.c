@@ -92,7 +92,7 @@
 
 RCSID("$Id: bsd-snprintf.c,v 1.1 2002/04/16 02:22:12 greerga Exp $");
 #else
-# include "conf.h"
+# include "conf_proto.h"
 # include "sysdep.h"
 # define MAX(a, b)	((a) < (b) ? (b) : (a))
 #endif

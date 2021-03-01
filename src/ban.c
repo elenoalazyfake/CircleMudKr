@@ -8,7 +8,7 @@
 *  CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.               *
 ************************************************************************ */
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 
@@ -53,19 +53,18 @@ void load_banned(void)
 
   ban_list = 0;
 
-  if (!(fl = fopen(BAN_FILE, "r"))) {
+  if (fopen_s(&fl, BAN_FILE, "r")) {
     if (errno != ENOENT) {
-      log("SYSERR: Unable to open banfile '%s': %s", BAN_FILE, strerror(errno));
+      strerror(errno);
+      log("SYSERR: Unable to open banfile '%s': %s", BAN_FILE, strerrorbuf);
     } else
       log("   Ban file '%s' doesn't exist.", BAN_FILE);
     return;
   }
   while (fscanf(fl, " %s %s %d %s ", ban_type, site_name, &date, name) == 4) {
     CREATE(next_node, struct ban_list_element, 1);
-    strncpy(next_node->site, site_name, BANNED_SITE_LENGTH);	/* strncpy: OK (n_n->site:BANNED_SITE_LENGTH+1) */
-    next_node->site[BANNED_SITE_LENGTH] = '\0';
-    strncpy(next_node->name, name, MAX_NAME_LENGTH);	/* strncpy: OK (n_n->name:MAX_NAME_LENGTH+1) */
-    next_node->name[MAX_NAME_LENGTH] = '\0';
+    strlcpy(next_node->site, site_name, BANNED_SITE_LENGTH + 1);	/* strncpy: OK (n_n->site:BANNED_SITE_LENGTH+1) */
+    strlcpy(next_node->name, name, MAX_NAME_LENGTH + 1);	/* strncpy: OK (n_n->name:MAX_NAME_LENGTH+1) */
     next_node->date = date;
 
     for (i = BAN_NOT; i <= BAN_ALL; i++)
@@ -116,7 +115,7 @@ void write_ban_list(void)
 {
   FILE *fl;
 
-  if (!(fl = fopen(BAN_FILE, "w"))) {
+  if (fopen_s(&fl, BAN_FILE, "w")) {
     perror("SYSERR: Unable to open '" BAN_FILE "' for writing");
     return;
   }
@@ -130,7 +129,7 @@ void write_ban_list(void)
 ACMD(do_ban)
 {
   char flag[MAX_INPUT_LENGTH], site[MAX_INPUT_LENGTH], *nextchar;
-  char timestr[16];
+  char timestr[MAX_TIME_LENGTH];
   int i;
   struct ban_list_element *ban_node;
 
@@ -152,10 +151,11 @@ ACMD(do_ban)
 
     for (ban_node = ban_list; ban_node; ban_node = ban_node->next) {
       if (ban_node->date) {
-	strlcpy(timestr, asctime(localtime(&(ban_node->date))), 10);
+	time_string(ban_node->date, timestr, MAX_TIME_LENGTH);
 	timestr[10] = '\0';
-      } else
-	strcpy(timestr, "Unknown");	/* strcpy: OK (strlen("Unknown") < 16) */
+      } else {
+	strlcpy(timestr, "Unknown", MAX_TIME_LENGTH);	/* strcpy: OK (strlen("Unknown") < 16) */
+      }
 
       send_to_char(ch, BAN_LIST_FORMAT, ban_node->site, ban_types[ban_node->type], timestr, ban_node->name);
     }
@@ -179,12 +179,10 @@ ACMD(do_ban)
   }
 
   CREATE(ban_node, struct ban_list_element, 1);
-  strncpy(ban_node->site, site, BANNED_SITE_LENGTH);	/* strncpy: OK (b_n->site:BANNED_SITE_LENGTH+1) */
+  strlcpy(ban_node->site, site, BANNED_SITE_LENGTH + 1);	/* strncpy: OK (b_n->site:BANNED_SITE_LENGTH+1) */
   for (nextchar = ban_node->site; *nextchar; nextchar++)
     *nextchar = LOWER(*nextchar);
-  ban_node->site[BANNED_SITE_LENGTH] = '\0';
-  strncpy(ban_node->name, GET_NAME(ch), MAX_NAME_LENGTH);	/* strncpy: OK (b_n->size:MAX_NAME_LENGTH+1) */
-  ban_node->name[MAX_NAME_LENGTH] = '\0';
+  strlcpy(ban_node->name, GET_NAME(ch), MAX_NAME_LENGTH + 1);	/* strncpy: OK (b_n->size:MAX_NAME_LENGTH+1) */
   ban_node->date = time(0);
 
   for (i = BAN_NEW; i <= BAN_ALL; i++)
@@ -294,9 +292,9 @@ void Free_Invalid_List(void)
 void Read_Invalid_List(void)
 {
   FILE *fp;
-  char temp[256];
+  char temp[READ_SIZE];
 
-  if (!(fp = fopen(XNAME_FILE, "r"))) {
+  if (fopen_s(&fp, XNAME_FILE, "r")) {
     perror("SYSERR: Unable to open '" XNAME_FILE "' for reading");
     return;
   }

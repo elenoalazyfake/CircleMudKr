@@ -507,6 +507,7 @@
 #define MAX_AFFECT		32  /* Used in char_file_u *DO*NOT*CHANGE* */
 #define MAX_OBJ_AFFECT		6 /* Used in obj_file_elem *DO*NOT*CHANGE* */
 #define MAX_NOTE_LENGTH		1000	/* arbitrary */
+#define MAX_TIME_LENGTH		32
 
 /*
  * A MAX_PWD_LENGTH of 10 will cause BSD-derived systems with MD5 passwords

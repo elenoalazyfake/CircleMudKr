@@ -334,3 +334,8 @@
 
 /* Check for a prototype to write. */
 #undef NEED_WRITE_PROTO
+
+/* Check weather improved check of visual studio */
+#if _MSC_VER >= 1920
+#define VS_NEW
+#endif

@@ -8,7 +8,7 @@
 *  CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.               *
 ************************************************************************ */
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 
@@ -229,16 +229,20 @@ int Crash_delete_file(char *name)
 
   if (!get_filename(filename, sizeof(filename), CRASH_FILE, name))
     return (0);
-  if (!(fl = fopen(filename, "rb"))) {
-    if (errno != ENOENT)	/* if it fails but NOT because of no file */
-      log("SYSERR: deleting crash file %s (1): %s", filename, strerror(errno));
+  if (fopen_s(&fl, filename, "rb")) {
+    if (errno != ENOENT) {	/* if it fails but NOT because of no file */
+      strerror(errno);
+      log("SYSERR: deleting crash file %s (1): %s", filename, strerrorbuf);
+    }
     return (0);
   }
   fclose(fl);
 
   /* if it fails, NOT because of no file */
-  if (remove(filename) < 0 && errno != ENOENT)
-    log("SYSERR: deleting crash file %s (2): %s", filename, strerror(errno));
+  if (remove(filename) < 0 && errno != ENOENT) {
+    strerror(errno);
+    log("SYSERR: deleting crash file %s (2): %s", filename, strerrorbuf);
+  }
 
   return (1);
 }
@@ -253,9 +257,11 @@ int Crash_delete_crashfile(struct char_data *ch)
 
   if (!get_filename(filename, sizeof(filename), CRASH_FILE, GET_NAME(ch)))
     return (0);
-  if (!(fl = fopen(filename, "rb"))) {
-    if (errno != ENOENT)	/* if it fails, NOT because of no file */
-      log("SYSERR: checking for crash file %s (3): %s", filename, strerror(errno));
+  if (fopen_s(&fl, filename, "rb")) {
+    if (errno != ENOENT) {	/* if it fails, NOT because of no file */
+      strerror(errno);
+      log("SYSERR: checking for crash file %s (3): %s", filename, strerrorbuf);
+    }
     return (0);
   }
   numread = fread(&rent, sizeof(struct rent_info), 1, fl);
@@ -284,9 +290,11 @@ int Crash_clean_file(char *name)
    * open for write so that permission problems will be flagged now, at boot
    * time.
    */
-  if (!(fl = fopen(filename, "r+b"))) {
-    if (errno != ENOENT)	/* if it fails, NOT because of no file */
-      log("SYSERR: OPENING OBJECT FILE %s (4): %s", filename, strerror(errno));
+  if (fopen_s(&fl, filename, "r+b")) {
+    if (errno != ENOENT) {	/* if it fails, NOT because of no file */
+      strerror(errno);
+      log("SYSERR: OPENING OBJECT FILE %s (4): %s", filename, strerrorbuf);
+    }
     return (0);
   }
   numread = fread(&rent, sizeof(struct rent_info), 1, fl);
@@ -350,7 +358,7 @@ void Crash_listrent(struct char_data *ch, char *name)
 
   if (!get_filename(filename, sizeof(filename), CRASH_FILE, name))
     return;
-  if (!(fl = fopen(filename, "rb"))) {
+  if (fopen_s(&fl, filename, "rb")) {
     send_to_char(ch, "%s has no rent file.\r\n", name);
     return;
   }
@@ -441,9 +449,10 @@ int Crash_load(struct char_data *ch)
 
   if (!get_filename(filename, sizeof(filename), CRASH_FILE, GET_NAME(ch)))
     return (1);
-  if (!(fl = fopen(filename, "r+b"))) {
+  if (fopen_s(&fl, filename, "r+b")) {
     if (errno != ENOENT) {	/* if it fails, NOT because of no file */
-      log("SYSERR: READING OBJECT FILE %s (5): %s", filename, strerror(errno));
+      strerror(errno);
+      log("SYSERR: READING OBJECT FILE %s (5): %s", filename, strerrorbuf);
       send_to_char(ch,
 		"\r\n********************* NOTICE *********************\r\n"
 		"There was a problem loading your objects from disk.\r\n"
@@ -741,7 +750,7 @@ void Crash_crashsave(struct char_data *ch)
 
   if (!get_filename(buf, sizeof(buf), CRASH_FILE, GET_NAME(ch)))
     return;
-  if (!(fp = fopen(buf, "wb")))
+  if (fopen_s(&fp, buf, "wb"))
     return;
 
   rent.rentcode = RENT_CRASH;
@@ -784,7 +793,7 @@ void Crash_idlesave(struct char_data *ch)
 
   if (!get_filename(buf, sizeof(buf), CRASH_FILE, GET_NAME(ch)))
     return;
-  if (!(fp = fopen(buf, "wb")))
+  if (fopen_s(&fp, buf, "wb"))
     return;
 
   Crash_extract_norent_eq(ch);
@@ -863,7 +872,7 @@ void Crash_rentsave(struct char_data *ch, int cost)
 
   if (!get_filename(buf, sizeof(buf), CRASH_FILE, GET_NAME(ch)))
     return;
-  if (!(fp = fopen(buf, "wb")))
+  if (fopen_s(&fp, buf, "wb"))
     return;
 
   Crash_extract_norent_eq(ch);
@@ -909,7 +918,7 @@ void Crash_cryosave(struct char_data *ch, int cost)
 
   if (!get_filename(buf, sizeof(buf), CRASH_FILE, GET_NAME(ch)))
     return;
-  if (!(fp = fopen(buf, "wb")))
+  if (fopen_s(&fp, buf, "wb"))
     return;
 
   Crash_extract_norent_eq(ch);

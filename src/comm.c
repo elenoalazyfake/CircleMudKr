@@ -10,7 +10,7 @@
 
 #define __COMM_C__
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 #if CIRCLE_GNU_LIBC_MEMORY_TRACK
@@ -190,7 +190,7 @@ void Free_Invalid_List(void);
 void gettimeofday(struct timeval *t, struct timezone *dummy)
 {
 #if defined(CIRCLE_WINDOWS)
-  DWORD millisec = GetTickCount();
+  ULONGLONG millisec = GetTickCount64();
 #elif defined(CIRCLE_MACINTOSH)
   unsigned long int millisec;
   millisec = (int)((float)TickCount() * 1000.0 / 60.0);
@@ -309,10 +309,16 @@ int main(int argc, char **argv)
    */
   log("%s", circlemud_version);
 
+#ifdef VS_NEW
+#pragma warning(disable: 4996)
+#endif
   if (chdir(dir) < 0) {
     perror("SYSERR: Fatal error changing to data directory");
     exit(1);
   }
+#ifdef VS_NEW
+#pragma warning(default: 4996)
+#endif
   log("Using %s as data directory.", dir);
 
   if (scheck)
@@ -989,9 +995,9 @@ char *make_prompt(struct descriptor_data *d)
 
   /* Note, prompt is truncated at MAX_PROMPT_LENGTH chars (structs.h) */
 
-  if (d->str)
-    strcpy(prompt, "] ");	/* strcpy: OK (for 'MAX_PROMPT_LENGTH >= 3') */
-  else if (d->showstr_count) {
+  if (d->str) {
+    strlcpy(prompt, "] ", MAX_PROMPT_LENGTH);	/* strcpy: OK (for 'MAX_PROMPT_LENGTH >= 3') */
+  } else if (d->showstr_count) {
     snprintf(prompt, sizeof(prompt),
 	    "\r\n[ Return to continue, (q)uit, (r)efresh, (b)ack, or page number (%d/%d) ]",
 	    d->showstr_page, d->showstr_count);
@@ -1070,7 +1076,7 @@ int get_from_q(struct txt_q *queue, char *dest, int *aliased)
   if (!queue->head)
     return (0);
 
-  strcpy(dest, queue->head->text);	/* strcpy: OK (mutual MAX_INPUT_LENGTH) */
+  strlcpy(dest, queue->head->text, MAX_INPUT_LENGTH);	/* strcpy: OK (mutual MAX_INPUT_LENGTH) */
   *aliased = queue->head->aliased;
 
   tmp = queue->head;
@@ -1127,7 +1133,7 @@ size_t vwrite_to_output(struct descriptor_data *t, const char *format, va_list a
   /* If exceeding the size of the buffer, truncate it for the overflow message */
   if (size < 0 || wantsize >= sizeof(txt)) {
     size = sizeof(txt) - 1;
-    strcpy(txt + size - strlen(text_overflow), text_overflow);	/* strcpy: OK */
+    strlcpy(txt + size - strlen(text_overflow), text_overflow, strlen(text_overflow) + 1);	/* strcpy: OK */
   }
 
   /*
@@ -1146,7 +1152,7 @@ size_t vwrite_to_output(struct descriptor_data *t, const char *format, va_list a
    * text just barely fits, then it's switched to a large buffer instead.
    */
   if (t->bufspace > size) {
-    strcpy(t->output + t->bufptr, txt);	/* strcpy: OK (size checked above) */
+    strlcpy(t->output + t->bufptr, txt, size + 1);	/* strcpy: OK (size checked above) */
     t->bufspace -= size;
     t->bufptr += size;
     return (t->bufspace);
@@ -1164,9 +1170,9 @@ size_t vwrite_to_output(struct descriptor_data *t, const char *format, va_list a
     buf_largecount++;
   }
 
-  strcpy(t->large_outbuf->text, t->output);	/* strcpy: OK (size checked previously) */
+  strlcpy(t->large_outbuf->text, t->output, LARGE_BUFSIZE);	/* strcpy: OK (size checked previously) */
   t->output = t->large_outbuf->text;	/* make big buffer primary */
-  strcat(t->output, txt);	/* strcat: OK (size checked) */
+  strncat(t->output, txt, LARGE_BUFSIZE);	/* strcat: OK (size checked) */
 
   /* set the pointer for the next write */
   t->bufptr = strlen(t->output);
@@ -1328,11 +1334,9 @@ int new_descriptor(socket_t s)
       perror("SYSERR: gethostbyaddr");
 
     /* find the numeric site address */
-    strncpy(newd->host, (char *)inet_ntoa(peer.sin_addr), HOST_LENGTH);	/* strncpy: OK (n->host:HOST_LENGTH+1) */
-    *(newd->host + HOST_LENGTH) = '\0';
+    strlcpy(newd->host, (char *)inet_ntoa(peer.sin_addr), HOST_LENGTH);	/* strncpy: OK (n->host:HOST_LENGTH+1) */
   } else {
-    strncpy(newd->host, from->h_name, HOST_LENGTH);	/* strncpy: OK (n->host:HOST_LENGTH+1) */
-    *(newd->host + HOST_LENGTH) = '\0';
+    strlcpy(newd->host, from->h_name, HOST_LENGTH);	/* strncpy: OK (n->host:HOST_LENGTH+1) */
   }
 
   /* determine if the site is banned */
@@ -1399,21 +1403,21 @@ int process_output(struct descriptor_data *t)
   int result;
 
   /* we may need this \r\n for later -- see below */
-  strcpy(i, "\r\n");	/* strcpy: OK (for 'MAX_SOCK_BUF >= 3') */
+  strlcpy(i, "\r\n", MAX_SOCK_BUF);	/* strcpy: OK (for 'MAX_SOCK_BUF >= 3') */
 
   /* now, append the 'real' output */
-  strcpy(osb, t->output);	/* strcpy: OK (t->output:LARGE_BUFSIZE < osb:MAX_SOCK_BUF-2) */
+  strlcpy(osb, t->output, MAX_SOCK_BUF  - 2);	/* strcpy: OK (t->output:LARGE_BUFSIZE < osb:MAX_SOCK_BUF-2) */
 
   /* if we're in the overflow state, notify the user */
   if (t->bufspace == 0)
-    strcat(osb, "**OVERFLOW**\r\n");	/* strcpy: OK (osb:MAX_SOCK_BUF-2 reserves space) */
+    strncat(osb, "**OVERFLOW**\r\n", MAX_SOCK_BUF - 2);	/* strcpy: OK (osb:MAX_SOCK_BUF-2 reserves space) */
 
   /* add the extra CRLF if the person isn't in compact mode */
   if (STATE(t) == CON_PLAYING && t->character && !IS_NPC(t->character) && !PRF_FLAGGED(t->character, PRF_COMPACT))
-    strcat(osb, "\r\n");	/* strcpy: OK (osb:MAX_SOCK_BUF-2 reserves space) */
+    strncat(osb, "\r\n", MAX_SOCK_BUF - 2);	/* strcpy: OK (osb:MAX_SOCK_BUF-2 reserves space) */
 
   /* add a prompt */
-  strcat(i, make_prompt(t));	/* strcpy: OK (i:MAX_SOCK_BUF reserves space) */
+  strncat(i, make_prompt(t), MAX_SOCK_BUF);	/* strcpy: OK (i:MAX_SOCK_BUF reserves space) */
 
   /*
    * now, send the output.  If this is an 'interruption', use the prepended
@@ -1462,7 +1466,7 @@ int process_output(struct descriptor_data *t)
     if ((unsigned int)result < strlen(osb)) {
       size_t savetextlen = strlen(osb + result);
 
-      strcat(t->output, osb + result);
+      strncat(t->output, osb + result, t->bufptr);
       t->bufptr   -= savetextlen;
       t->bufspace += savetextlen;
     }
@@ -1470,7 +1474,7 @@ int process_output(struct descriptor_data *t)
   } else {
     /* Not all data in buffer sent.  result < output buffersize. */
 
-    strcpy(t->output, t->output + result);	/* strcpy: OK (overlap) */
+    strlcpy(t->output, t->output + result, t->bufptr);	/* strcpy: OK (overlap) */
     t->bufptr   -= result;
     t->bufspace += result;
   }
@@ -1797,7 +1801,7 @@ int process_input(struct descriptor_data *t)
     failed_subst = 0;
 
     if (*tmp == '!' && !(*(tmp + 1)))	/* Redo last command. */
-      strcpy(tmp, t->last_input);	/* strcpy: OK (by mutual MAX_INPUT_LENGTH) */
+      strlcpy(tmp, t->last_input, MAX_INPUT_LENGTH);	/* strcpy: OK (by mutual MAX_INPUT_LENGTH) */
     else if (*tmp == '!' && *(tmp + 1)) {
       char *commandln = (tmp + 1);
       int starting_pos = t->history_pos,
@@ -1806,8 +1810,8 @@ int process_input(struct descriptor_data *t)
       skip_spaces(&commandln);
       for (; cnt != starting_pos; cnt--) {
 	if (t->history[cnt] && is_abbrev(commandln, t->history[cnt])) {
-	  strcpy(tmp, t->history[cnt]);	/* strcpy: OK (by mutual MAX_INPUT_LENGTH) */
-	  strcpy(t->last_input, tmp);	/* strcpy: OK (by mutual MAX_INPUT_LENGTH) */
+	  strlcpy(tmp, t->history[cnt], MAX_INPUT_LENGTH);	/* strcpy: OK (by mutual MAX_INPUT_LENGTH) */
+	  strlcpy(t->last_input, tmp, MAX_INPUT_LENGTH);	/* strcpy: OK (by mutual MAX_INPUT_LENGTH) */
           write_to_output(t, "%s\r\n", tmp);
 	  break;
 	}
@@ -1816,9 +1820,9 @@ int process_input(struct descriptor_data *t)
       }
     } else if (*tmp == '^') {
       if (!(failed_subst = perform_subst(t, t->last_input, tmp)))
-	strcpy(t->last_input, tmp);	/* strcpy: OK (by mutual MAX_INPUT_LENGTH) */
+	strlcpy(t->last_input, tmp, MAX_INPUT_LENGTH);	/* strcpy: OK (by mutual MAX_INPUT_LENGTH) */
     } else {
-      strcpy(t->last_input, tmp);	/* strcpy: OK (by mutual MAX_INPUT_LENGTH) */
+      strlcpy(t->last_input, tmp, MAX_INPUT_LENGTH);	/* strcpy: OK (by mutual MAX_INPUT_LENGTH) */
       if (t->history[t->history_pos])
 	free(t->history[t->history_pos]);	/* Clear the old line. */
       t->history[t->history_pos] = strdup(tmp);	/* Save the new. */
@@ -1884,7 +1888,7 @@ int perform_subst(struct descriptor_data *t, char *orig, char *subst)
   /* now, we construct the new string for output. */
 
   /* first, everything in the original, up to the string to be replaced */
-  strncpy(newsub, orig, strpos - orig);	/* strncpy: OK (newsub:MAX_INPUT_LENGTH+5 > orig:MAX_INPUT_LENGTH) */
+  strlcpy(newsub, orig, strpos - orig);	/* strncpy: OK (newsub:MAX_INPUT_LENGTH+5 > orig:MAX_INPUT_LENGTH) */
   newsub[strpos - orig] = '\0';
 
   /* now, the replacement string */
@@ -1897,7 +1901,7 @@ int perform_subst(struct descriptor_data *t, char *orig, char *subst)
 
   /* terminate the string in case of an overflow from strncat */
   newsub[MAX_INPUT_LENGTH - 1] = '\0';
-  strcpy(subst, newsub);	/* strcpy: OK (by mutual MAX_INPUT_LENGTH) */
+  strlcpy(subst, newsub, MAX_INPUT_LENGTH);	/* strcpy: OK (by mutual MAX_INPUT_LENGTH) */
 
   return (0);
 }
@@ -1926,7 +1930,7 @@ void close_socket(struct descriptor_data *d)
     d->character->desc = NULL;
 
     /* Plug memory leak, from Eric Green. */
-    if (!IS_NPC(d->character) && PLR_FLAGGED(d->character, PLR_MAILING) && d->str) {
+    if (PLR_FLAGGED(d->character, PLR_MAILING) && d->str) {
       if (*(d->str))
         free(*(d->str));
       free(d->str);
@@ -1953,9 +1957,11 @@ void close_socket(struct descriptor_data *d)
   /* Clear the command history. */
   if (d->history) {
     int cnt;
-    for (cnt = 0; cnt < HISTORY_SIZE; cnt++)
-      if (d->history[cnt])
+    for (cnt = 0; cnt < HISTORY_SIZE; cnt++) {
+      if (d->history[cnt]) {
 	free(d->history[cnt]);
+      }
+    }
     free(d->history);
   }
 
@@ -2480,18 +2486,19 @@ void setup_log(const char *filename, int fd)
 
 int open_logfile(const char *filename, FILE *stderr_fp)
 {
-  if (stderr_fp)	/* freopen() the descriptor. */
-    logfile = freopen(filename, "w", stderr_fp);
-  else
-    logfile = fopen(filename, "w");
+  if (stderr_fp) {	/* freopen() the descriptor. */
+    freopen_s(&logfile, filename, "w", stderr_fp);
+  } else {
+    fopen_s(&logfile, filename, "w");
+  }
 
   if (logfile) {
     printf("Using log file '%s'%s.\n",
 		filename, stderr_fp ? " with redirection" : "");
     return (TRUE);
   }
-
-  printf("SYSERR: Error opening file '%s': %s\n", filename, strerror(errno));
+  strerror(errno);
+  printf("SYSERR: Error opening file '%s': %s\n", filename, strerrorbuf);
   return (FALSE);
 }
 

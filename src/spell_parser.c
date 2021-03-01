@@ -9,7 +9,7 @@
 ************************************************************************ */
 
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 
@@ -108,7 +108,7 @@ void say_spell(struct char_data *ch, int spellnum, struct char_data *tch,
   while (lbuf[ofs]) {
     for (j = 0; *(syls[j].org); j++) {
       if (!strncmp(syls[j].org, lbuf + ofs, strlen(syls[j].org))) {
-	strcat(buf, syls[j].news);	/* strcat: BAD */
+	strncat(buf, syls[j].news, 256);	/* strcat: BAD */
 	ofs += strlen(syls[j].org);
         break;
       }

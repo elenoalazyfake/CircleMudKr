@@ -14,7 +14,7 @@
  *  NOT DONE!!
  */
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 #include "structs.h"

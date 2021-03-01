@@ -8,7 +8,7 @@
 *  CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.               *
 ************************************************************************ */
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 #include "structs.h"
@@ -670,7 +670,8 @@ ACMD(do_examine)
   }
 
   /* look_at_target() eats the number. */
-  look_at_target(ch, strcpy(tempsave, arg));	/* strcpy: OK */
+  strlcpy(tempsave, arg, MAX_INPUT_LENGTH);
+  look_at_target(ch, tempsave);	/* strcpy: OK */
 
   generic_find(arg, FIND_OBJ_INV | FIND_OBJ_ROOM | FIND_CHAR_ROOM |
 		      FIND_OBJ_EQUIP, ch, &tmp_char, &tmp_object);
@@ -967,7 +968,7 @@ ACMD(do_who)
   int who_room = 0;
 
   skip_spaces(&argument);
-  strcpy(buf, argument);	/* strcpy: OK (sizeof: argument == buf) */
+  strlcpy(buf, argument, MAX_INPUT_LENGTH);	/* strcpy: OK (sizeof: argument == buf) */
   name_search[0] = '\0';
 
   while (*buf) {
@@ -976,26 +977,26 @@ ACMD(do_who)
     half_chop(buf, arg, buf1);
     if (isdigit(*arg)) {
       sscanf(arg, "%d-%d", &low, &high);
-      strcpy(buf, buf1);	/* strcpy: OK (sizeof: buf1 == buf) */
+      strlcpy(buf, buf1, MAX_INPUT_LENGTH);	/* strcpy: OK (sizeof: buf1 == buf) */
     } else if (*arg == '-') {
       mode = *(arg + 1);       /* just in case; we destroy arg in the switch */
       switch (mode) {
       case 'o':
       case 'k':
 	outlaws = 1;
-	strcpy(buf, buf1);	/* strcpy: OK (sizeof: buf1 == buf) */
+	strlcpy(buf, buf1, MAX_INPUT_LENGTH);	/* strcpy: OK (sizeof: buf1 == buf) */
 	break;
       case 'z':
 	localwho = 1;
-	strcpy(buf, buf1);	/* strcpy: OK (sizeof: buf1 == buf) */
+	strlcpy(buf, buf1, MAX_INPUT_LENGTH);	/* strcpy: OK (sizeof: buf1 == buf) */
 	break;
       case 's':
 	short_list = 1;
-	strcpy(buf, buf1);	/* strcpy: OK (sizeof: buf1 == buf) */
+	strlcpy(buf, buf1, MAX_INPUT_LENGTH);	/* strcpy: OK (sizeof: buf1 == buf) */
 	break;
       case 'q':
 	questwho = 1;
-	strcpy(buf, buf1);	/* strcpy: OK (sizeof: buf1 == buf) */
+	strlcpy(buf, buf1, MAX_INPUT_LENGTH);	/* strcpy: OK (sizeof: buf1 == buf) */
 	break;
       case 'l':
 	half_chop(buf1, arg, buf);
@@ -1006,7 +1007,7 @@ ACMD(do_who)
 	break;
       case 'r':
 	who_room = 1;
-	strcpy(buf, buf1);	/* strcpy: OK (sizeof: buf1 == buf) */
+	strlcpy(buf, buf1, MAX_INPUT_LENGTH);	/* strcpy: OK (sizeof: buf1 == buf) */
 	break;
       case 'c':
 	half_chop(buf1, arg, buf);
@@ -1113,10 +1114,11 @@ ACMD(do_users)
   int low = 0, high = LVL_IMPL, num_can_see = 0;
   int showclass = 0, outlaws = 0, playing = 0, deadweight = 0;
   char buf[MAX_INPUT_LENGTH], arg[MAX_INPUT_LENGTH];
+  char timebuf[MAX_TIME_LENGTH];
 
   host_search[0] = name_search[0] = '\0';
 
-  strcpy(buf, argument);	/* strcpy: OK (sizeof: argument == buf) */
+  strlcpy(buf, argument, MAX_INPUT_LENGTH);	/* strcpy: OK (sizeof: argument == buf) */
   while (*buf) {
     char buf1[MAX_INPUT_LENGTH];
 
@@ -1128,15 +1130,15 @@ ACMD(do_users)
       case 'k':
 	outlaws = 1;
 	playing = 1;
-	strcpy(buf, buf1);	/* strcpy: OK (sizeof: buf1 == buf) */
+	strlcpy(buf, buf1, MAX_INPUT_LENGTH);	/* strcpy: OK (sizeof: buf1 == buf) */
 	break;
       case 'p':
 	playing = 1;
-	strcpy(buf, buf1);	/* strcpy: OK (sizeof: buf1 == buf) */
+	strlcpy(buf, buf1, MAX_INPUT_LENGTH);	/* strcpy: OK (sizeof: buf1 == buf) */
 	break;
       case 'd':
 	deadweight = 1;
-	strcpy(buf, buf1);	/* strcpy: OK (sizeof: buf1 == buf) */
+	strlcpy(buf, buf1, MAX_INPUT_LENGTH);	/* strcpy: OK (sizeof: buf1 == buf) */
 	break;
       case 'l':
 	playing = 1;
@@ -1198,43 +1200,44 @@ ACMD(do_users)
 	continue;
 
       if (d->original)
-	sprintf(classname, "[%2d %s]", GET_LEVEL(d->original),
+	snprintf(classname, 20, "[%2d %s]", GET_LEVEL(d->original),
 		CLASS_ABBR(d->original));
       else
-	sprintf(classname, "[%2d %s]", GET_LEVEL(d->character),
+	snprintf(classname, 20, "[%2d %s]", GET_LEVEL(d->character),
 		CLASS_ABBR(d->character));
     } else
-      strcpy(classname, "   -   ");
+      strlcpy(classname, "   -   ", 20);
 
-    timeptr = asctime(localtime(&d->login_time));
+    time_string(d->login_time, timebuf, MAX_TIME_LENGTH);
+    timeptr = timebuf;
     timeptr += 11;
     *(timeptr + 8) = '\0';
 
     if (STATE(d) == CON_PLAYING && d->original)
-      strcpy(state, "Switched");
+      strlcpy(state, "Switched", 30);
     else
-      strcpy(state, connected_types[STATE(d)]);
+      strlcpy(state, connected_types[STATE(d)], 30);
 
     if (d->character && STATE(d) == CON_PLAYING && GET_LEVEL(d->character) < LVL_GOD)
-      sprintf(idletime, "%3d", d->character->char_specials.timer *
+      snprintf(idletime, 10, "%3d", d->character->char_specials.timer *
 	      SECS_PER_MUD_HOUR / SECS_PER_REAL_MIN);
     else
-      strcpy(idletime, "");
+      idletime[0] = '\0';
 
-    sprintf(line, "%3d %-7s %-12s %-14s %-3s %-8s ", d->desc_num, classname,
+    snprintf(line, 200, "%3d %-7s %-12s %-14s %-3s %-8s ", d->desc_num, classname,
 	d->original && d->original->player.name ? d->original->player.name :
 	d->character && d->character->player.name ? d->character->player.name :
 	"UNDEFINED",
 	state, idletime, timeptr);
 
     if (d->host && *d->host)
-      sprintf(line + strlen(line), "[%s]\r\n", d->host);
+      snprintf(line + strlen(line), 200 - strlen(line), "[%s]\r\n", d->host);
     else
-      strcat(line, "[Hostname unknown]\r\n");
+      snprintf(line + strlen(line), 200 - strlen(line), "[Hostname unknown]\r\n");
 
     if (STATE(d) != CON_PLAYING) {
-      sprintf(line2, "%s%s%s", CCGRN(ch, C_SPR), line, CCNRM(ch, C_SPR));
-      strcpy(line, line2);
+      snprintf(line2, 220, "%s%s%s", CCGRN(ch, C_SPR), line, CCNRM(ch, C_SPR));
+      strlcpy(line, line2, 200);
     }
     if (STATE(d) != CON_PLAYING ||
 		(STATE(d) == CON_PLAYING && CAN_SEE(ch, d->character))) {
@@ -1555,9 +1558,9 @@ ACMD(do_toggle)
     return;
 
   if (GET_WIMP_LEV(ch) == 0)
-    strcpy(buf2, "OFF");	/* strcpy: OK */
+    strlcpy(buf2, "OFF", 4);	/* strcpy: OK */
   else
-    sprintf(buf2, "%-3.3d", GET_WIMP_LEV(ch));	/* sprintf: OK */
+    snprintf(buf2, 4, "%-3.3d", GET_WIMP_LEV(ch));	/* sprintf: OK */
 
   if (GET_LEVEL(ch) >= LVL_IMMORT) {
     send_to_char(ch,

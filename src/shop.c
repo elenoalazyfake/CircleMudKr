@@ -12,7 +12,7 @@
  * The entire shop rewrite for Circle 3.0 was done by Jeff Fink.  Thanks Jeff!
  ***/
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 #include "structs.h"
@@ -251,8 +251,7 @@ int evaluate_expression(struct obj_data *obj, char *expr)
 	end = ptr;
 	while (*ptr && !isspace(*ptr) && find_oper_num(*ptr) == NOTHING)
 	  ptr++;
-	strncpy(name, end, ptr - end);	/* strncpy: OK (name/end:MAX_STRING_LENGTH) */
-	name[ptr - end] = '\0';
+	strlcpy(name, end, ptr - end + 1);	/* strncpy: OK (name/end:MAX_STRING_LENGTH) */
 	for (eindex = 0; *extra_bits[eindex] != '\n'; eindex++)
 	  if (!str_cmp(name, extra_bits[eindex])) {
 	    push(&vals, OBJ_FLAGGED(obj, 1 << eindex));
@@ -362,7 +361,8 @@ int transaction_amt(char *arg)
    */
   buywhat = one_argument(arg, buf);
   if (*buywhat && *buf && is_number(buf)) {
-    strcpy(arg, arg + strlen(buf) + 1);	/* strcpy: OK (always smaller) */
+    char* shift = arg + strlen(buf) + 1;
+    memmove(arg, shift, strlen(shift));	/* strcpy: OK (always smaller) */
     return (atoi(buf));
   }
   return (1);
@@ -552,10 +552,12 @@ void shopping_buy(char *arg, struct char_data *ch, struct char_data *keeper, int
 
     switch (SHOP_BROKE_TEMPER(shop_nr)) {
     case 0:
-      do_action(keeper, strcpy(actbuf, GET_NAME(ch)), cmd_puke, 0);	/* strcpy: OK (MAX_NAME_LENGTH < MAX_INPUT_LENGTH) */
+      strlcpy(actbuf, GET_NAME(ch), sizeof(actbuf));
+      do_action(keeper, actbuf, cmd_puke, 0);	/* strcpy: OK (MAX_NAME_LENGTH < MAX_INPUT_LENGTH) */
       return;
     case 1:
-      do_echo(keeper, strcpy(actbuf, "smokes on his joint."), cmd_emote, SCMD_EMOTE);	/* strcpy: OK */
+      strlcpy(actbuf, "smokes on his joint.", sizeof(actbuf));
+      do_echo(keeper, actbuf, cmd_emote, SCMD_EMOTE);	/* strcpy: OK */
       return;
     default:
       return;
@@ -842,9 +844,9 @@ char *list_object(struct obj_data *obj, int cnt, int aindex, int shop_nr, struct
 	quantity[16];	/* "Unlimited" or "%d" */
 
   if (shop_producing(obj, shop_nr))
-    strcpy(quantity, "Unlimited");	/* strcpy: OK (for 'quantity >= 10') */
+    strlcpy(quantity, "Unlimited", 16);	/* strcpy: OK (for 'quantity >= 10') */
   else
-    sprintf(quantity, "%d", cnt);	/* sprintf: OK (for 'quantity >= 11', 32-bit int) */
+    snprintf(quantity, 16, "%d", cnt);	/* sprintf: OK (for 'quantity >= 11', 32-bit int) */
 
   switch (GET_OBJ_TYPE(obj)) {
   case ITEM_DRINKCON:
@@ -1101,8 +1103,9 @@ int read_type_list(FILE *shop_f, struct shop_buy_data *list,
     if (strncmp(buf, "-1", 4) != 0)
       for (tindex = 0; *item_types[tindex] != '\n'; tindex++)
         if (!strn_cmp(item_types[tindex], buf, strlen(item_types[tindex]))) {
+	  char* shift = buf + strlen(item_types[tindex]);
           num = tindex;
-          strcpy(buf, buf + strlen(item_types[tindex]));	/* strcpy: OK (always smaller) */
+          memmove(buf, shift, strlen(shift));	/* strcpy: OK (always smaller) */
           break;
         }
 
@@ -1313,14 +1316,14 @@ void list_all_shops(struct char_data *ch)
        */
       if (len + headerlen + 1 >= sizeof(buf))
         break;
-      strcpy(buf + len, list_all_shops_header);	/* strcpy: OK (length checked above) */
+      strlcpy(buf + len, list_all_shops_header, MAX_STRING_LENGTH - len);	/* strcpy: OK (length checked above) */
       len += headerlen;
     }
 
     if (SHOP_KEEPER(shop_nr) == NOBODY)
-      strcpy(buf1, "<NONE>");	/* strcpy: OK (for 'buf1 >= 7') */
+      strlcpy(buf1, "<NONE>", 16);	/* strcpy: OK (for 'buf1 >= 7') */
     else
-      sprintf(buf1, "%6d", mob_index[SHOP_KEEPER(shop_nr)].vnum);	/* sprintf: OK (for 'buf1 >= 11', 32-bit int) */
+      snprintf(buf1, 16, "%6d", mob_index[SHOP_KEEPER(shop_nr)].vnum);	/* sprintf: OK (for 'buf1 >= 11', 32-bit int) */
 
     len += snprintf(buf + len, sizeof(buf) - len,
                "%3d   %6d   %6d    %s   %3.2f   %3.2f    %s\r\n",

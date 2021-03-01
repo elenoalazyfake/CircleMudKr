@@ -9,7 +9,7 @@
 *  CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.               *
 ************************************************************************ */
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 
@@ -537,13 +537,15 @@ SPECIAL(king_welmar)
     break;
 
   case 'o':
-    do_gen_door(ch, strcpy(actbuf, "door"), 0, SCMD_UNLOCK);	/* strcpy: OK */
-    do_gen_door(ch, strcpy(actbuf, "door"), 0, SCMD_OPEN);	/* strcpy: OK */
+    strlcpy(actbuf, "door", MAX_INPUT_LENGTH);
+    do_gen_door(ch, actbuf, 0, SCMD_UNLOCK);	/* strcpy: OK */
+    do_gen_door(ch, actbuf, 0, SCMD_OPEN);	/* strcpy: OK */
     break;
 
   case 'c':
-    do_gen_door(ch, strcpy(actbuf, "door"), 0, SCMD_CLOSE);	/* strcpy: OK */
-    do_gen_door(ch, strcpy(actbuf, "door"), 0, SCMD_LOCK);	/* strcpy: OK */
+    strlcpy(actbuf, "door", MAX_INPUT_LENGTH);
+    do_gen_door(ch, actbuf, 0, SCMD_CLOSE);	/* strcpy: OK */
+    do_gen_door(ch, actbuf, 0, SCMD_LOCK);	/* strcpy: OK */
     break;
 
   case '.':
@@ -674,9 +676,10 @@ int castle_twin_proc(struct char_data *ch, int cmd, char *arg, int ctlnum, const
 
   if ((king = find_npc_by_name(ch, "King Welmar", 11)) != NULL) {
     char actbuf[MAX_INPUT_LENGTH];
+    strlcpy(actbuf, "King Welmar", MAX_INPUT_LENGTH);
 
     if (!ch->master)
-      do_follow(ch, strcpy(actbuf, "King Welmar"), 0, 0);	/* strcpy: OK */
+      do_follow(ch, actbuf, 0, 0);	/* strcpy: OK */
     if (FIGHTING(king))
       do_npc_rescue(ch, king);
   }

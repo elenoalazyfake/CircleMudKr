@@ -325,14 +325,22 @@ struct in_addr {
 #if defined(HAVE_STRCASECMP)
 # define str_cmp strcasecmp
 #elif defined(HAVE_STRICMP)
+#ifdef VS_NEW
+# define str_cmp _stricmp
+#else
 # define str_cmp stricmp
+#endif
 #endif
 
 /* strncasecmp -> strnicmp -> strn_cmp */
 #if defined(HAVE_STRNCASECMP)
 # define strn_cmp strncasecmp
 #elif defined(HAVE_STRNICMP)
+#ifdef VS_NEW
+# define strn_cmp _strnicmp
+#else
 # define strn_cmp strnicmp
+#endif
 #endif
 
 #if !defined(__GNUC__)
@@ -344,11 +352,20 @@ struct in_addr {
 #endif
 
 /* Socket/header miscellany. */
+#define ARRAY_SIZE(x)   (sizeof(x) / sizeof(x[0]))
 
 #if defined(CIRCLE_WINDOWS)	/* Definitions for Win32 */
 
+#ifdef VS_NEW
+# define snprintf(buf, size, format, ...) _snprintf_s(buf, size, _TRUNCATE, format, __VA_ARGS__)
+# define vsnprintf(buf, size, format, args) _vsnprintf_s(buf, size, _TRUNCATE, format, args)
+# define strdup _strdup
+# define strncat(dst, src, n) strncat_s(dst, n, src, (n) - 1)
+# define fdopen _fdopen
+#else
 # define snprintf _snprintf
 # define vsnprintf _vsnprintf
+#endif
 # define PATH_MAX MAX_PATH
 
 # if !defined(__BORLANDC__) && !defined(LCC_WIN32)	/* MSVC */
@@ -385,6 +402,17 @@ struct in_addr {
 
 #elif !defined(CIRCLE_MACINTOSH) && !defined(CIRCLE_UNIX) && !defined(CIRCLE_ACORN)
 # error "You forgot to include conf.h or do not have a valid system define."
+#endif
+
+#ifdef VS_NEW
+#define strerror(n) strerror_s(strerrorbuf, MAX_RAW_INPUT_LENGTH, n)
+//#define strncpy(dst, src, n) strncpy_s(dst, n, src, (n) - 1)
+#define memmove(dst, src, n) memmove_s(dst, n, src, n)
+#define memcopy(dst, src, n) memcopy_s(dst, n, src, n)
+#else
+#define strerror(n) strerror_r(n, strerrorbuf, MAX_RAW_INPUT_LENGTH)
+#define fopen_s(fd, f, m) ((*(fd)) = fopen((f), (m))) == NULL
+#define freopen_s(fd, f, m ,fp) ((*(fd)) = freopen((f), (m), (fp))) == NULL
 #endif
 
 /* SOCKET -- must be after the winsock.h #include. */

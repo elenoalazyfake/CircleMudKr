@@ -8,7 +8,7 @@
 *  CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.               *
 ************************************************************************ */
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 
@@ -144,8 +144,9 @@ void load_messages(void)
   struct message_type *messages;
   char chk[128];
 
-  if (!(fl = fopen(MESS_FILE, "r"))) {
-    log("SYSERR: Error reading combat message file %s: %s", MESS_FILE, strerror(errno));
+  if (fopen_s(&fl, MESS_FILE, "r")) {
+    strerror(errno);
+    log("SYSERR: Error reading combat message file %s: %s", MESS_FILE, strerrorbuf);
     exit(1);
   }
 

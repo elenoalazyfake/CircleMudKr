@@ -248,6 +248,8 @@ extern struct index_data *obj_index;
 extern struct obj_data *object_list;
 extern struct obj_data *obj_proto;
 extern obj_rnum top_of_objt;
+
+extern char strerrorbuf[MAX_RAW_INPUT_LENGTH];
 #endif
 
 #ifndef __CONFIG_C__

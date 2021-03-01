@@ -14,7 +14,7 @@ Written by Jeremy Elson (jelson@circlemud.org)
 
 *************************************************************************/
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 #include "structs.h"
@@ -164,7 +164,7 @@ void write_to_file(void *buf, int size, long filepos)
     no_mail = TRUE;
     return;
   }
-  if (!(mail_file = fopen(MAIL_FILE, "r+b"))) {
+  if (fopen_s(&mail_file, MAIL_FILE, "r+b")) {
     log("SYSERR: Unable to open mail file '%s'.", MAIL_FILE);
     no_mail = TRUE;
     return;
@@ -197,7 +197,7 @@ void read_from_file(void *buf, int size, long filepos)
     no_mail = TRUE;
     return;
   }
-  if (!(mail_file = fopen(MAIL_FILE, "r+b"))) {
+  if (fopen_s(&mail_file, MAIL_FILE, "r+b")) {
     log("SYSERR: Unable to open mail file '%s'.", MAIL_FILE);
     no_mail = TRUE;
     return;
@@ -250,7 +250,7 @@ int scan_file(void)
   header_block_type next_block;
   int total_messages = 0, block_num = 0;
 
-  if (!(mail_file = fopen(MAIL_FILE, "rb"))) {
+  if (fopen_s(&mail_file, MAIL_FILE, "rb")) {
     log("   Mail file non-existant... creating new file.");
     touch(MAIL_FILE);
     return (1);
@@ -324,8 +324,7 @@ void store_mail(long to, long from, char *message_pointer)
   header.header_data.from = from;
   header.header_data.to = to;
   header.header_data.mail_time = time(0);
-  strncpy(header.txt, msg_txt, HEADER_BLOCK_DATASIZE);	/* strncpy: OK (h.txt:HEADER_BLOCK_DATASIZE+1) */
-  header.txt[HEADER_BLOCK_DATASIZE] = '\0';
+  strlcpy(header.txt, msg_txt, HEADER_BLOCK_DATASIZE + 1);	/* strncpy: OK (h.txt:HEADER_BLOCK_DATASIZE+1) */
 
   target_address = pop_free_list();	/* find next free block */
   index_mail(to, target_address);	/* add it to mail index in memory */
@@ -349,8 +348,7 @@ void store_mail(long to, long from, char *message_pointer)
   /* now write the current data block */
   memset((char *) &data, 0, sizeof(data));	/* clear the record */
   data.block_type = LAST_BLOCK;
-  strncpy(data.txt, msg_txt, DATA_BLOCK_DATASIZE);	/* strncpy: OK (d.txt:DATA_BLOCK_DATASIZE+1) */
-  data.txt[DATA_BLOCK_DATASIZE] = '\0';
+  strlcpy(data.txt, msg_txt, DATA_BLOCK_DATASIZE + 1);	/* strncpy: OK (d.txt:DATA_BLOCK_DATASIZE+1) */
   write_to_file(&data, BLOCK_SIZE, target_address);
   bytes_written += strlen(data.txt);
   msg_txt += strlen(data.txt);
@@ -377,8 +375,7 @@ void store_mail(long to, long from, char *message_pointer)
 
     /* now write the next block, assuming it's the last.  */
     data.block_type = LAST_BLOCK;
-    strncpy(data.txt, msg_txt, DATA_BLOCK_DATASIZE);	/* strncpy: OK (d.txt:DATA_BLOCK_DATASIZE+1) */
-    data.txt[DATA_BLOCK_DATASIZE] = '\0';
+    strlcpy(data.txt, msg_txt, DATA_BLOCK_DATASIZE + 1);	/* strncpy: OK (d.txt:DATA_BLOCK_DATASIZE+1) */
     write_to_file(&data, BLOCK_SIZE, target_address);
 
     bytes_written += strlen(data.txt);
@@ -402,8 +399,9 @@ char *read_delete(long recipient)
   mail_index_type *mail_pointer, *prev_mail;
   position_list_type *position_pointer;
   long mail_address, following_block;
-  char *tmstr, buf[MAX_MAIL_SIZE + 256];	/* + header */
+  char buf[MAX_MAIL_SIZE + 256];	/* + header */
   char *from, *to;
+  char timebuf[MAX_TIME_LENGTH];
 
   if (recipient < 0) {
     log("SYSERR: Mail system -- non-fatal error #6. (recipient: %ld)", recipient);
@@ -451,8 +449,8 @@ char *read_delete(long recipient)
     log("SYSERR: Mail system disabled!  -- Error #9. (Invalid header block.)");
     return (NULL);
   }
-  tmstr = asctime(localtime(&header.header_data.mail_time));
-  *(tmstr + strlen(tmstr) - 1) = '\0';
+  time_string(header.header_data.mail_time, timebuf, MAX_TIME_LENGTH);
+  *(timebuf + strlen(timebuf) - 1) = '\0';
 
   from = get_name_by_id(header.header_data.from);
   to = get_name_by_id(recipient);
@@ -465,7 +463,7 @@ char *read_delete(long recipient)
 	"\r\n"
 	"%s",
 
-	tmstr,
+	timebuf,
 	to ? to : "Unknown",
 	from ? from : "Unknown",
 	header.txt
@@ -480,7 +478,7 @@ char *read_delete(long recipient)
   while (following_block != LAST_BLOCK) {
     read_from_file(&data, BLOCK_SIZE, following_block);
 
-    strcat(buf, data.txt);	/* strcat: OK (data.txt:DATA_BLOCK_DATASIZE < buf:MAX_MAIL_SIZE) */
+    strncat(buf, data.txt, MAX_MAIL_SIZE + 256);	/* strcat: OK (data.txt:DATA_BLOCK_DATASIZE < buf:MAX_MAIL_SIZE) */
     mail_address = following_block;
     following_block = data.block_type;
     data.block_type = DELETED_BLOCK;

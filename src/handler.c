@@ -8,7 +8,7 @@
 *  CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.               *
 ************************************************************************ */
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 
@@ -597,7 +597,7 @@ int get_number(char **name)
   if ((ppos = strchr(*name, '.')) != NULL) {
     *ppos++ = '\0';
     strlcpy(number, *name, sizeof(number));
-    strcpy(*name, ppos);	/* strcpy: OK (always smaller) */
+    memmove(*name, ppos, strlen(ppos));	/* strcpy: OK (always smaller) */
 
     for (i = 0; *(number + i); i++)
       if (!isdigit(*(number + i)))
@@ -1291,7 +1291,7 @@ struct obj_data *create_money(int amount)
       snprintf(buf, sizeof(buf), "You guess there are, maybe, %d coins.",
 	      1000 * ((amount / 1000) + rand_number(0, (amount / 1000))));
     else
-      strcpy(buf, "There are a LOT of coins.");	/* strcpy: OK (is < 200) */
+      strlcpy(buf, "There are a LOT of coins.", 200);	/* strcpy: OK (is < 200) */
     new_descr->description = strdup(buf);
   }
 
@@ -1386,7 +1386,7 @@ int find_all_dots(char *arg)
   if (!strcmp(arg, "all"))
     return (FIND_ALL);
   else if (!strncmp(arg, "all.", 4)) {
-    strcpy(arg, arg + 4);	/* strcpy: OK (always less) */
+    memmove(arg, arg + 4, strlen(arg + 4));	/* strcpy: OK (always less) */
     return (FIND_ALLDOT);
   } else
     return (FIND_INDIV);

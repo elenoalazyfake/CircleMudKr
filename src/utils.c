@@ -8,7 +8,7 @@
 *  CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.               *
 ************************************************************************ */
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 
@@ -104,12 +104,18 @@ char *CAP(char *txt)
  * (Note that you may have _expected_ truncation because you only wanted
  * a few characters from the source string.)
  */
+#ifdef VS_NEW
+#pragma warning(disable: 4996)
+#endif
 size_t strlcpy(char *dest, const char *source, size_t totalsize)
 {
   strncpy(dest, source, totalsize - 1);	/* strncpy: OK (we must assume 'totalsize' is correct) */
   dest[totalsize - 1] = '\0';
   return strlen(source);
 }
+#ifdef VS_NEW
+#pragma warning(default: 4996)
+#endif
 #endif
 
 
@@ -120,7 +126,8 @@ char *strdup(const char *source)
   char *new_z;
 
   CREATE(new_z, char, strlen(source) + 1);
-  return (strcpy(new_z, source)); /* strcpy: OK */
+  strlcpy(new_z, source, strlen(source) + 1)
+  return new_z; /* strcpy: OK */
 }
 #endif
 
@@ -201,7 +208,9 @@ void log_death_trap(struct char_data *ch)
 void basic_mud_vlog(const char *format, va_list args)
 {
   time_t ct = time(0);
-  char *time_s = asctime(localtime(&ct));
+  char timebuf[MAX_TIME_LENGTH];
+
+  time_string(ct, timebuf, MAX_TIME_LENGTH);
 
   if (logfile == NULL) {
     puts("SYSERR: Using log() before stream was initialized!");
@@ -211,9 +220,9 @@ void basic_mud_vlog(const char *format, va_list args)
   if (format == NULL)
     format = "SYSERR: log() received a NULL format.";
 
-  time_s[strlen(time_s) - 1] = '\0';
+  timebuf[strlen(timebuf) - 1] = '\0';
 
-  fprintf(logfile, "%-15.15s :: ", time_s + 4);
+  fprintf(logfile, "%-15.15s :: ", timebuf + 4);
   vfprintf(logfile, format, args);
   fputc('\n', logfile);
   fflush(logfile);
@@ -236,8 +245,9 @@ int touch(const char *path)
 {
   FILE *fl;
 
-  if (!(fl = fopen(path, "a"))) {
-    log("SYSERR: %s: %s", path, strerror(errno));
+  if (fopen_s(&fl, path, "a")) {
+    strerror(errno);
+    log("SYSERR: %s: %s", path, strerrorbuf);
     return (-1);
   } else {
     fclose(fl);
@@ -268,11 +278,11 @@ void mudlog(int type, int level, int file, const char *str, ...)
   if (level < 0)
     return;
 
-  strcpy(buf, "[ ");	/* strcpy: OK */
+  strlcpy(buf, "[ ", MAX_STRING_LENGTH);	/* strcpy: OK */
   va_start(args, str);
   vsnprintf(buf + 2, sizeof(buf) - 6, str, args);
   va_end(args);
-  strcat(buf, " ]\r\n");	/* strcat: OK */
+  strncat(buf, " ]\r\n", MAX_STRING_LENGTH);	/* strcat: OK */
 
   for (i = descriptor_list; i; i = i->next) {
     if (STATE(i) != CON_PLAYING || IS_NPC(i->character)) /* switch */
@@ -541,7 +551,7 @@ int get_line(FILE *fl, char *buf)
   while (sl > 0 && (temp[sl - 1] == '\n' || temp[sl - 1] == '\r'))
     temp[--sl] = '\0';
 
-  strcpy(buf, temp); /* strcpy: OK, if buf >= READ_SIZE (256) */
+  strlcpy(buf, temp, READ_SIZE); /* strcpy: OK, if buf >= READ_SIZE (256) */
   return (lines);
 }
 
@@ -681,4 +691,12 @@ int room_is_dark(room_rnum room)
     return (TRUE);
 
   return (FALSE);
+}
+
+
+void time_string(time_t t, char* buf, int size)
+{
+  struct tm tm;
+  localtime_s(&tm, &t);
+  asctime_s(buf, size, &tm);
 }

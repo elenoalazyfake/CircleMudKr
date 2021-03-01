@@ -8,7 +8,7 @@
 *  CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.               *
 ************************************************************************ */
 
-#include "conf.h"
+#include "conf_proto.h"
 #include "sysdep.h"
 
 
@@ -218,8 +218,9 @@ void boot_social_messages(void)
   struct social_messg temp;
 
   /* open social file */
-  if (!(fl = fopen(SOCMESS_FILE, "r"))) {
-    log("SYSERR: can't open socials file '%s': %s", SOCMESS_FILE, strerror(errno));
+  if (fopen_s(&fl, SOCMESS_FILE, "r")) {
+    strerror(errno);
+    log("SYSERR: can't open socials file '%s': %s", SOCMESS_FILE, strerrorbuf);
     exit(1);
   }
   /* count socials & allocate space */
